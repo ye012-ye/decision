@@ -74,7 +74,8 @@ com.ye.decision
 ├── config/
 │   ├── AiConfig.java              # @Configuration；构建 ChatClient Bean
 │   │                              # 注入 3 个 Tool Bean（.defaultFunctions(...)）
-│   │                              # 注入 MessageWindowChatMemory Bean（从 Redis 构建）
+│   │                              # 注入 RedisChatMemoryRepository Bean（Spring AI 原生）
+│   │                              # 注入 MessageWindowChatMemory Bean（windowSize 从配置读取）
 │   │                              # @ConfigurationProperties(prefix="decision.agent") + @RefreshScope
 │   ├── RedisConfig.java           # Redis 序列化配置（Jackson2JsonRedisSerializer）
 │   └── WebConfig.java             # CORS 配置；不负责 SseEmitter 超时（超时在 Controller 构建时设定）
@@ -87,9 +88,10 @@ com.ye.decision
 │                                  # onError → sseEmitter.send(event:error, JSON) + complete()
 │
 ├── service/
-│   └── AgentService.java          # 从 Redis 加载 ChatMemory（key: session:{sessionId}，TTL: 24h）
-│                                  # 构建 ChatClient 请求，返回 Flux<String>
-│                                  # 在 Flux doOnComplete 回调中异步写回完整消息列表到 Redis
+│   └── AgentService.java          # 注入 MessageWindowChatMemory（由 RedisChatMemoryRepository 持久化）
+│                                  # ChatMemory 自动按 conversationId=sessionId 隔离，TTL 由 Redis 配置
+│                                  # 构建 ChatClient 请求（.user(msg).advisors(memory)），返回 Flux<String>
+│                                  # 无需手动 Redis 写回，ChatMemory 内部自动持久化
 │
 ├── tool/
 │   ├── QueryMysqlTool.java        # @Bean("queryMysqlTool")，implements Function<QueryMysqlReq, String>
@@ -99,8 +101,11 @@ com.ye.decision
 │                                  # 内部使用 RestTemplate 调用外部 HTTP 接口
 │
 ├── feign/
-│   ├── OrderServiceClient.java    # @FeignClient(name="order-service")
-│   └── UserServiceClient.java     # @FeignClient(name="user-service")
+│   ├── DownstreamClient.java      # interface；统一路由接口：String query(String queryStr)
+│   ├── OrderServiceClient.java    # @FeignClient(name="order-service")，implements DownstreamClient
+│   │                              # GET /internal/orders?query={query} → String(JSON)
+│   └── UserServiceClient.java     # @FeignClient(name="user-service")，implements DownstreamClient
+│   │                              # GET /internal/users?query={query} → String(JSON)
 │   (在 DecisionApplication 上添加 @EnableFeignClients(basePackages="com.ye.decision.feign"))
 │
 ├── dto/
@@ -226,7 +231,15 @@ decision:
     max-tool-iterations: 5        # ReAct 最大工具调用轮数，防止无限循环
   sse:
     timeout-ms: 180000            # SseEmitter 超时时间（毫秒）
+  redis:
+    memory-ttl-hours: 24          # ChatMemory 在 Redis 中的 TTL（小时）
+  external:
+    weather-url: https://api.weather.example.com/current   # 天气服务端点
+    logistics-url: https://api.logistics.example.com/track # 物流追踪端点
+    exchange-rate-url: https://api.exchange.example.com/rate # 汇率查询端点
 ```
+
+`CallExternalApiTool` 通过 `@ConfigurationProperties(prefix="decision.external")` 或 `@Value("${decision.external.weather-url}")` 注入上述 URL。
 
 `AiConfig` 使用 `@ConfigurationProperties(prefix = "decision.agent")` + `@RefreshScope`，Nacos 推送配置变更后自动生效，无需重启。
 
@@ -237,19 +250,19 @@ decision:
 ```
 1.  前端 POST { sessionId: "abc", message: "查一下用户123的最近订单" }
 2.  ChatController 创建 SseEmitter(timeout=180s)，提交任务到 ThreadPoolTaskExecutor 后立即返回
-3.  AgentService 从 Redis 加载 key="session:abc" 的历史消息（TTL=24h，不存在则空列表）
-4.  构建 MessageWindowChatMemory(windowSize=N) → ChatClient 请求包含 SystemPrompt + 历史 + 当前 message
-5.  调用 ChatClient.stream()，Spring AI 开始与 LLM 交互
+3.  AgentService 通过 MessageWindowChatMemory（由 RedisChatMemoryRepository 支撑）
+    按 conversationId=sessionId 自动加载历史；Redis key 格式由 Spring AI 内部管理，TTL 通过
+    Redis 配置（decision.redis.memory-ttl-hours=24）设定
+4.  ChatClient 请求包含 SystemPrompt + ChatMemory Advisor + 当前 message → 调用 ChatClient.stream()
+5.  Spring AI 开始与 LLM 交互；ChatMemory Advisor 自动在请求前注入历史、在响应后持久化
 6.  若 LLM 返回 tool_call → Spring AI 路由到对应 @Bean Tool.apply()（同步执行）
 7.  Tool 返回 JSON 字符串 → 追加为 tool message → 再次调用 LLM（ReAct 循环）
-8.  循环超过 max-tool-iterations 时，Spring AI 抛出 MaxToolIterationsExceededException
-    → AgentService catch 后生成降级提示消息（"已收集部分信息，无法完全回答..."）推入 Flux
+8.  循环超过 max-tool-iterations 时，Spring AI 抛出 MaximumToolCallsExceededException
+    → AgentService 在 Flux onErrorResume 中捕获此异常，推送降级提示（"已收集部分信息，无法完全回答..."）
 9.  LLM 生成最终 text 回答，token 流通过 Flux<String> 返回给 ChatController
 10. ChatController 异步线程：token → sseEmitter.send(data:token)
     onComplete → sseEmitter.send(data:[DONE]) + sseEmitter.complete()
     onError（含 SSE 路径所有异常）→ catch 后 sseEmitter.send(event:error, JSON) + complete()
-11. AgentService 在 Flux doOnComplete 中异步将完整消息列表写回 Redis（key="session:abc"，TTL=24h）
-    写入失败 → log.warn，不影响本次响应
 ```
 
 ---
@@ -388,7 +401,7 @@ data: {"code":500,"msg":"LLM调用超时","data":null}
 | LLM 调用超时/失败（SSE 路径） | Controller 异步线程内 catch，推送 `event:error data:{"code":500,"msg":"..."}` 后 `complete()` |
 | Tool 调用下游服务失败（Feign 异常） | Tool 内 try-catch，返回统一错误 JSON（见 8.4），不向上抛异常，LLM 据此回答用户 |
 | Tool 收到未知 target / service | Tool 内直接返回 `unknown_service` 错误 JSON，不抛异常 |
-| ReAct 超过 max-tool-iterations | Spring AI 抛出 `MaxToolIterationsExceededException`，AgentService catch 后向 Flux 发送降级提示 |
+| ReAct 超过 max-tool-iterations | Spring AI 抛出 `MaximumToolCallsExceededException`，AgentService 在 `onErrorResume` 中捕获并推送降级提示 |
 | sessionId 不存在 | Redis key 缺失时 ChatMemory 返回空列表，自动开启新会话，无需报错 |
 | Redis 写回失败 | `doOnComplete` 中 catch，记录 `log.warn`，不影响本次 SSE 响应；下次该 session 历史为空 |
 | 模型配置缺失/非法 | `@ConfigurationProperties` 绑定 + `@Validated` + `@NotBlank`（apiKey 等必填项）；校验失败则拒绝启动 |
