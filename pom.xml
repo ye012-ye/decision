@@ -50,10 +50,10 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Spring AI Alibaba (ChatClient + FunctionCallback) -->
+        <!-- Spring AI Alibaba DashScope (ChatClient + FunctionCallback) -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter</artifactId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
         </dependency>
 
         <!-- Nacos 配置中心 -->
