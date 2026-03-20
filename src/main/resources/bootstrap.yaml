@@ -8,7 +8,6 @@ spring:
         namespace: dev
         group: DEFAULT_GROUP
         file-extension: yaml
-        data-id: decision.yaml
       discovery:
         server-addr: 127.0.0.1:8848
         namespace: dev
