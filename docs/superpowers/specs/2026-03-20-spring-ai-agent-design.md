@@ -14,16 +14,18 @@
 
 ## 2. 技术栈
 
-| 组件 | 选型 |
-|------|------|
-| 框架 | Spring Boot 3.3.x |
-| AI 框架 | Spring AI Alibaba (ChatClient + FunctionCallback) |
-| 服务注册/配置 | Spring Cloud Alibaba Nacos |
-| 服务间调用 | Spring Cloud OpenFeign |
-| 会话记忆 | Spring Data Redis (MessageWindowChatMemory) |
-| 流式响应 | SSE (SseEmitter) |
-| 构建工具 | Maven |
-| Java 版本 | 17 |
+| 组件 | 选型 | 版本 |
+|------|------|------|
+| 框架 | Spring Boot | 3.3.x |
+| AI 框架 | Spring AI Alibaba | 1.0.0.2 |
+| 服务注册/配置 | Spring Cloud Alibaba Nacos | 2023.0.x |
+| 服务间调用 | Spring Cloud OpenFeign | 4.1.x |
+| 会话记忆 | Spring Data Redis (MessageWindowChatMemory) | — |
+| 流式响应 | SSE (SseEmitter) | — |
+| 构建工具 | Maven | — |
+| Java 版本 | 17 | — |
+
+> 注意：现有 `pom.xml` 中 `spring-boot-starter-parent` 版本为 `4.0.4`，实现阶段需替换为 `3.3.x`。
 
 ---
 
@@ -36,12 +38,18 @@
 ┌─────────────────────────────────────────────┐
 │         decision 服务 (Spring Boot 3.3.x)    │
 │                                             │
-│  ChatController (SseEmitter)                │
+│  ChatController                             │
+│   - 创建 SseEmitter，提交异步任务            │
+│   - 订阅 AgentService 返回的 Flux<String>   │
+│   - 每个 token 推送一条 SSE event           │
 │       │                                     │
 │  AgentService                               │
+│   - 加载/保存 ChatMemory (Redis)            │
+│   - 构建 ChatClient 请求（含 Tools）        │
+│   - 返回 Flux<String> token 流              │
 │       │  ChatClient (Spring AI Alibaba)      │
-│       │       │                             │
-│       │  ChatMemory (Redis, 滑动窗口)        │
+│       │  Tools 通过 .defaultFunctions()     │
+│       │  注册，Spring AI 自动路由            │
 │       │                                     │
 │  ┌────┴──────────────────────────┐          │
 │  │      Tool Registry (3 Tools)  │          │
@@ -50,7 +58,7 @@
 │  │  call_external_api            │          │
 │  └────────────────┬──────────────┘          │
 └───────────────────┼─────────────────────────┘
-                    │ Feign / RestClient
+                    │ Feign
           ┌─────────┼──────────┐
           ▼         ▼          ▼
       用户服务   订单服务   外部API...
@@ -64,20 +72,36 @@
 ```
 com.ye.decision
 ├── config/
-│   ├── AiConfig.java              # ChatClient Bean，注入 Tools + Memory，读 Nacos 配置
-│   ├── RedisConfig.java           # Redis 序列化配置
-│   └── WebConfig.java             # CORS、SSE 超时配置
+│   ├── AiConfig.java              # @Configuration；构建 ChatClient Bean
+│   │                              # 注入 3 个 Tool Bean（.defaultFunctions(...)）
+│   │                              # 注入 MessageWindowChatMemory Bean（从 Redis 构建）
+│   │                              # @ConfigurationProperties(prefix="decision.agent") + @RefreshScope
+│   ├── RedisConfig.java           # Redis 序列化配置（Jackson2JsonRedisSerializer）
+│   └── WebConfig.java             # CORS 配置；不负责 SseEmitter 超时（超时在 Controller 构建时设定）
 │
 ├── controller/
-│   └── ChatController.java        # POST /api/chat/stream → SseEmitter
+│   └── ChatController.java        # POST /api/chat/stream → SseEmitter(timeout=180s)
+│                                  # 在异步线程（ThreadPoolTaskExecutor）中订阅 AgentService 返回的 Flux
+│                                  # token → sseEmitter.send(token)
+│                                  # onComplete → sseEmitter.send("[DONE]") + complete()
+│                                  # onError → sseEmitter.send(event:error, JSON) + complete()
 │
 ├── service/
-│   └── AgentService.java          # 组装 prompt + memory，调用 ChatClient.stream()
+│   └── AgentService.java          # 从 Redis 加载 ChatMemory（key: session:{sessionId}，TTL: 24h）
+│                                  # 构建 ChatClient 请求，返回 Flux<String>
+│                                  # 在 Flux doOnComplete 回调中异步写回完整消息列表到 Redis
 │
 ├── tool/
-│   ├── QueryMysqlTool.java        # Function<QueryMysqlReq, String>
-│   ├── QueryRedisTool.java        # Function<QueryRedisReq, String>
-│   └── CallExternalApiTool.java   # Function<ApiCallReq, String>
+│   ├── QueryMysqlTool.java        # @Bean("queryMysqlTool")，implements Function<QueryMysqlReq, String>
+│   │                              # Map<String, DownstreamClient> 路由：target → FeignClient 调用
+│   ├── QueryRedisTool.java        # @Bean("queryRedisTool")，implements Function<QueryRedisReq, String>
+│   └── CallExternalApiTool.java   # @Bean("callExternalApiTool")，implements Function<ApiCallReq, String>
+│                                  # 内部使用 RestTemplate 调用外部 HTTP 接口
+│
+├── feign/
+│   ├── OrderServiceClient.java    # @FeignClient(name="order-service")
+│   └── UserServiceClient.java     # @FeignClient(name="user-service")
+│   (在 DecisionApplication 上添加 @EnableFeignClients(basePackages="com.ye.decision.feign"))
 │
 ├── dto/
 │   ├── ChatRequest.java           # { sessionId, message }
@@ -87,7 +111,8 @@ com.ye.decision
 │
 ├── common/
 │   ├── Result.java                # 统一响应格式 { code, msg, data }
-│   └── GlobalExceptionHandler.java  # @RestControllerAdvice 统一异常处理
+│   └── GlobalExceptionHandler.java  # @RestControllerAdvice，处理非 SSE 路径异常
+│                                    # SSE 路径异常在 Controller 异步线程内 catch 处理
 │
 └── prompt/
     └── system-prompt.md           # System Prompt 模板（classpath 资源）
@@ -95,101 +120,212 @@ com.ye.decision
 
 ---
 
-## 5. 核心依赖（pom.xml）
+## 5. 依赖管理（pom.xml）
+
+通过 BOM 统一管理版本，避免冲突：
 
 ```xml
-<!-- Spring AI Alibaba -->
-<dependency>
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.alibaba.cloud.ai</groupId>
+      <artifactId>spring-ai-alibaba-bom</artifactId>
+      <version>1.0.0.2</version>
+      <type>pom</type><scope>import</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.alibaba.cloud</groupId>
+      <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+      <version>2023.0.3.2</version>
+      <type>pom</type><scope>import</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-dependencies</artifactId>
+      <version>2023.0.3</version>
+      <type>pom</type><scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <dependency>
     <groupId>com.alibaba.cloud.ai</groupId>
     <artifactId>spring-ai-alibaba-starter</artifactId>
-</dependency>
-
-<!-- Nacos 配置中心 -->
-<dependency>
+  </dependency>
+  <dependency>
     <groupId>com.alibaba.cloud</groupId>
     <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-</dependency>
-
-<!-- Nacos 服务注册 -->
-<dependency>
+  </dependency>
+  <dependency>
     <groupId>com.alibaba.cloud</groupId>
     <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-</dependency>
-
-<!-- OpenFeign 服务间调用 -->
-<dependency>
+  </dependency>
+  <dependency>
     <groupId>org.springframework.cloud</groupId>
     <artifactId>spring-cloud-starter-openfeign</artifactId>
-</dependency>
-
-<!-- Redis（ChatMemory） -->
-<dependency>
+  </dependency>
+  <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
-
-<!-- Web（SSE） -->
-<dependency>
+  </dependency>
+  <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-web</artifactId>
-</dependency>
+  </dependency>
+  <!-- bootstrap.yaml 支持（Spring Cloud 2020+ 默认禁用 bootstrap context） -->
+  <dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bootstrap</artifactId>
+  </dependency>
+</dependencies>
+```
+
+> 现有 `pom.xml` 中的 `spring-boot-starter-webmvc` 替换为 `spring-boot-starter-web`（同一制品，保持依赖表一致）。
+
+---
+
+## 6. 配置文件结构
+
+项目需要 `bootstrap.yaml`（Nacos Config 在应用启动前加载，早于 `application.yaml`）：
+
+```yaml
+# bootstrap.yaml（本地，不含敏感信息）
+spring:
+  application:
+    name: decision
+  cloud:
+    nacos:
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: DEFAULT_GROUP
+        file-extension: yaml
+        data-id: decision.yaml   # 远端配置文件名
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+```
+
+```yaml
+# Nacos 中的 decision.yaml（远端，含敏感信息）
+spring:
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+      chat:
+        model: qwen-plus          # 可切换：qwen-max、qwen-turbo 等
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+decision:
+  agent:
+    memory-window-size: 10        # 保留最近 N 轮对话
+    max-tool-iterations: 5        # ReAct 最大工具调用轮数，防止无限循环
+  sse:
+    timeout-ms: 180000            # SseEmitter 超时时间（毫秒）
+```
+
+`AiConfig` 使用 `@ConfigurationProperties(prefix = "decision.agent")` + `@RefreshScope`，Nacos 推送配置变更后自动生效，无需重启。
+
+---
+
+## 7. ReAct 数据流
+
+```
+1.  前端 POST { sessionId: "abc", message: "查一下用户123的最近订单" }
+2.  ChatController 创建 SseEmitter(timeout=180s)，提交任务到 ThreadPoolTaskExecutor 后立即返回
+3.  AgentService 从 Redis 加载 key="session:abc" 的历史消息（TTL=24h，不存在则空列表）
+4.  构建 MessageWindowChatMemory(windowSize=N) → ChatClient 请求包含 SystemPrompt + 历史 + 当前 message
+5.  调用 ChatClient.stream()，Spring AI 开始与 LLM 交互
+6.  若 LLM 返回 tool_call → Spring AI 路由到对应 @Bean Tool.apply()（同步执行）
+7.  Tool 返回 JSON 字符串 → 追加为 tool message → 再次调用 LLM（ReAct 循环）
+8.  循环超过 max-tool-iterations 时，Spring AI 抛出 MaxToolIterationsExceededException
+    → AgentService catch 后生成降级提示消息（"已收集部分信息，无法完全回答..."）推入 Flux
+9.  LLM 生成最终 text 回答，token 流通过 Flux<String> 返回给 ChatController
+10. ChatController 异步线程：token → sseEmitter.send(data:token)
+    onComplete → sseEmitter.send(data:[DONE]) + sseEmitter.complete()
+    onError（含 SSE 路径所有异常）→ catch 后 sseEmitter.send(event:error, JSON) + complete()
+11. AgentService 在 Flux doOnComplete 中异步将完整消息列表写回 Redis（key="session:abc"，TTL=24h）
+    写入失败 → log.warn，不影响本次响应
 ```
 
 ---
 
-## 6. ReAct 数据流
+## 8. Tool 定义
 
-```
-1. 前端 POST { sessionId: "abc", message: "查一下用户123的最近订单" }
-2. ChatController 创建 SseEmitter，异步执行
-3. AgentService 从 Redis 加载该 session 的历史消息（滑动窗口）
-4. 拼装 SystemPrompt + 历史消息 + 当前 message → 发给 LLM
-5. LLM 返回 tool_call → Spring AI 自动路由到对应 Tool.apply()
-6. Tool 通过 Feign 调用下游服务，返回 JSON 字符串
-7. 结果作为 tool message 追加上下文，再次发给 LLM（ReAct 循环）
-8. LLM 生成最终回答，流式 token 通过 SseEmitter 推送前端
-9. 对话历史写回 Redis（保留最近 N 轮，N 由 Nacos 配置）
-```
+工具通过 `@Bean` 注册，`ChatClient` 调用 `.defaultFunctions("queryMysqlTool", "queryRedisTool", "callExternalApiTool")` 绑定。
 
----
+每个 Tool Bean 需要 `@Description` 注解（Spring AI 用此作为发送给 LLM 的 function description）。
 
-## 7. Tool 定义
-
-### 7.1 query_mysql
-- **描述：** 查询结构化业务数据，如订单、用户信息、交易记录、统计报表
+### 8.1 query_mysql
+- **Bean 名称：** `queryMysqlTool`
+- **@Description：** `"查询结构化业务数据，如订单、用户信息、交易记录、统计报表。适用于精确条件查询场景。"`
 - **InputSchema：**
   ```java
   record QueryMysqlReq(
-      String target,  // 目标服务，如 "order-service"、"user-service"
-      String query    // 查询条件描述
+      @JsonProperty(required = true)
+      String target,   // 下游服务：固定值 "order-service" | "user-service"
+      @JsonProperty(required = true)
+      String query     // 查询条件，如 "userId=123 最近5条订单"
   ) {}
   ```
+- **路由规则：** Tool 内部维护 `Map<String, DownstreamClient> clients`（key = target），每个 DownstreamClient 封装对应 FeignClient。未知 target 直接返回错误 JSON，不抛异常。
+- **FeignClient 接口（简要）：**
+  - `OrderServiceClient`：`GET /internal/orders?query={query}` → 返回 JSON 数组
+  - `UserServiceClient`：`GET /internal/users?query={query}` → 返回 JSON 对象或数组
+  - Feign 超时配置：connectTimeout=3s，readTimeout=10s
 
-### 7.2 query_redis
-- **描述：** 查询缓存数据、热点数据、实时计数器、会话信息、排行榜
+### 8.2 query_redis
+- **Bean 名称：** `queryRedisTool`
+- **@Description：** `"查询 Redis 中的缓存数据、热点数据、实时计数器、会话信息或排行榜。适用于低延迟、高频访问场景。"`
 - **InputSchema：**
   ```java
   record QueryRedisReq(
-      String keyPattern,  // Redis key 模式，如 "user:123:session"
-      String dataType     // "string" | "hash" | "zset" | "list"
+      @JsonProperty(required = true)
+      String keyPattern,   // 完整 Redis key，如 "user:123:profile"
+      @JsonProperty(required = true)
+      String dataType      // "string" | "hash" | "zset" | "list"
   ) {}
   ```
+- **输出格式：** `{"key": "...", "type": "...", "value": <原始值>}`
+  - string → `"value": "字符串内容"`
+  - hash → `"value": { "field": "val", ... }`
+  - zset/list → `"value": ["item1", "item2", ...]`
+- **key 不存在时：** 返回 `{"key": "...", "type": "...", "value": null, "found": false}`
 
-### 7.3 call_external_api
-- **描述：** 查询外部第三方服务，如天气、汇率、物流追踪、地图服务等
+### 8.3 call_external_api
+- **Bean 名称：** `callExternalApiTool`
+- **@Description：** `"调用外部第三方服务，包括天气查询、汇率查询、物流追踪。"`
 - **InputSchema：**
   ```java
   record ApiCallReq(
-      String service,  // 服务标识，如 "weather"、"logistics"、"exchange-rate"
-      String params    // JSON 格式请求参数
+      @JsonProperty(required = true)
+      String service,  // 固定值："weather" | "logistics" | "exchange-rate"
+      @JsonProperty(required = true)
+      String params    // JSON 字符串，各 service 的参数结构见下
   ) {}
   ```
+- **实现：** 内部使用 `RestTemplate`，各 service 对应一个适配方法，URL 通过 Nacos 配置注入。
+- **params 结构（LLM 调用时应按此构造）：**
+  - `weather`：`{"city": "北京"}` → 返回 `{"city":"...","temp":"...","desc":"..."}`
+  - `logistics`：`{"trackingNo": "SF1234567"}` → 返回 `{"status":"...","location":"..."}`
+  - `exchange-rate`：`{"from": "USD", "to": "CNY"}` → 返回 `{"rate": 7.25}`
+- **未知 service：** 返回 `{"error": "unknown_service", "message": "不支持的外部服务: {service}"}`
 
-所有 Tool 返回值统一为 **String（JSON）**，由 LLM 自行解析并组织最终回答。
+### 8.4 Tool 错误输出统一格式
+
+所有 Tool 在异常时返回（不抛异常，避免中断 ReAct 循环）：
+```json
+{ "error": "<error_code>", "message": "<可读描述>", "tool": "<tool_name>" }
+```
+LLM 收到含 `"error"` 字段的响应时，在最终回答中说明查询失败及原因。
 
 ---
 
-## 8. System Prompt
+## 9. System Prompt
 
 ```
 你是一个企业智能助手，服务于客服、运维和通用业务查询场景。
@@ -208,13 +344,14 @@ com.ye.decision
 - 工具调用前，先判断哪个工具最合适
 - 如果一次工具调用结果不完整，可以继续调用其他工具补充
 - 最终回答必须基于工具返回的真实数据，不得编造
+- 如果工具返回错误（包含 "error" 字段），告知用户该查询失败及原因
 - 回答简洁、结构化，必要时使用列表或表格
 - 如果无法回答，明确告知用户并说明原因
 ```
 
 ---
 
-## 9. 统一响应格式
+## 10. 统一响应格式
 
 ```java
 // 非流式接口统一使用
@@ -224,24 +361,21 @@ public record Result<T>(int code, String msg, T data) {
 }
 ```
 
-SSE 流式接口直接推送 token 字符串，最后一条事件发送 `[DONE]` 信号。
+**SSE 事件格式：**
+```
+// 正常 token
+data: 这是
 
----
+data: 一段
 
-## 10. Nacos 配置项
+data: 流式回答
 
-```yaml
-# Nacos 中的 decision.yaml
-spring:
-  ai:
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY}
-      chat:
-        model: qwen-plus   # 可切换：qwen-max、qwen-turbo 等
+// 结束信号
+data: [DONE]
 
-decision:
-  agent:
-    memory-window-size: 10  # 保留最近 N 轮对话
+// 错误事件（event 字段区分类型）
+event: error
+data: {"code":500,"msg":"LLM调用超时","data":null}
 ```
 
 ---
@@ -250,7 +384,12 @@ decision:
 
 | 场景 | 处理方式 |
 |------|---------|
-| LLM 调用超时/失败 | GlobalExceptionHandler 捕获，返回 `Result.error()`；SSE 推送 error event |
-| Tool 调用下游服务失败 | Tool 内捕获异常，返回 JSON 错误描述，LLM 根据错误描述回答用户 |
-| sessionId 不存在 | 自动创建新会话，从空历史开始 |
-| 模型配置缺失 | 启动时 `@Value` 校验，Nacos 配置刷新后自动生效 |
+| LLM 调用超时/失败（非 SSE 路径） | `GlobalExceptionHandler`（`@RestControllerAdvice`）捕获，返回 `Result.error()` |
+| LLM 调用超时/失败（SSE 路径） | Controller 异步线程内 catch，推送 `event:error data:{"code":500,"msg":"..."}` 后 `complete()` |
+| Tool 调用下游服务失败（Feign 异常） | Tool 内 try-catch，返回统一错误 JSON（见 8.4），不向上抛异常，LLM 据此回答用户 |
+| Tool 收到未知 target / service | Tool 内直接返回 `unknown_service` 错误 JSON，不抛异常 |
+| ReAct 超过 max-tool-iterations | Spring AI 抛出 `MaxToolIterationsExceededException`，AgentService catch 后向 Flux 发送降级提示 |
+| sessionId 不存在 | Redis key 缺失时 ChatMemory 返回空列表，自动开启新会话，无需报错 |
+| Redis 写回失败 | `doOnComplete` 中 catch，记录 `log.warn`，不影响本次 SSE 响应；下次该 session 历史为空 |
+| 模型配置缺失/非法 | `@ConfigurationProperties` 绑定 + `@Validated` + `@NotBlank`（apiKey 等必填项）；校验失败则拒绝启动 |
+| Feign 调用超时 | 统一配置 connectTimeout=3s，readTimeout=10s；超时后 Feign 抛异常，Tool 内 catch 转为错误 JSON |
