@@ -1,7 +1,9 @@
 package com.ye.decision;
 
 import org.junit.jupiter.api.Test;
+import org.redisson.api.RedissonClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
@@ -16,6 +18,10 @@ import org.springframework.test.context.TestPropertySource;
     "decision.external.exchange-rate-url=http://exchange.test/rate"
 })
 class DecisionApplicationTests {
+
+    // Redisson eagerly connects at startup — mock it so tests don't require a live Redis
+    @MockBean
+    RedissonClient redissonClient;
 
     @Test
     void contextLoads() {

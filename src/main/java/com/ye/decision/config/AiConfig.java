@@ -1,10 +1,11 @@
 package com.ye.decision.config;
 
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
@@ -22,14 +23,14 @@ public class AiConfig {
     private int memoryWindowSize;
 
     /**
-     * ChatMemory 使用 InMemoryChatMemoryRepository。
-     * RedisChatMemoryRepository 在 spring-ai 1.0.0 中不存在（首次出现于 2.0.0-M1），
-     * 升级到 Spring AI 2.0.0+ 后可替换为 RedisChatMemoryRepository 实现跨重启持久化。
+     * Redis-backed ChatMemory via Redisson.
+     * Messages are persisted as JSON lists at "chat:memory:{conversationId}".
+     * The MessageChatMemoryAdvisor reads/writes via this repository on every turn.
      */
     @Bean
-    public ChatMemory chatMemory() {
+    public ChatMemory chatMemory(RedissonClient redissonClient, ObjectMapper objectMapper) {
         return MessageWindowChatMemory.builder()
-            .chatMemoryRepository(new InMemoryChatMemoryRepository())
+            .chatMemoryRepository(new RedissonChatMemoryRepository(redissonClient, objectMapper))
             .maxMessages(memoryWindowSize)
             .build();
     }

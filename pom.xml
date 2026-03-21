@@ -54,6 +54,7 @@
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <version>1.1.2.0</version>
         </dependency>
 
         <!-- Nacos 配置中心 -->
@@ -74,10 +75,11 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- Redis（RedisTemplate，供 QueryRedisTool 使用） -->
+        <!-- Redisson（替代 spring-boot-starter-data-redis，供 QueryRedisTool + ChatMemory 使用） -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>3.35.0</version>
         </dependency>
 
         <!-- Bootstrap Context (bootstrap.yaml) -->

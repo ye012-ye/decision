@@ -7,11 +7,11 @@ import com.ye.decision.feign.UserServiceClient;
 import com.ye.decision.tool.CallExternalApiTool;
 import com.ye.decision.tool.QueryMysqlTool;
 import com.ye.decision.tool.QueryRedisTool;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Description;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -41,9 +41,8 @@ public class ToolConfig {
 
     @Bean
     @Description("查询 Redis 中的缓存数据、热点数据、实时计数器、会话信息或排行榜。适用于低延迟、高频访问场景。")
-    public QueryRedisTool queryRedisTool(RedisTemplate<String, Object> redisTemplate,
-                                          ObjectMapper objectMapper) {
-        return new QueryRedisTool(redisTemplate, objectMapper);
+    public QueryRedisTool queryRedisTool(RedissonClient redissonClient, ObjectMapper objectMapper) {
+        return new QueryRedisTool(redissonClient, objectMapper);
     }
 
     @Bean
