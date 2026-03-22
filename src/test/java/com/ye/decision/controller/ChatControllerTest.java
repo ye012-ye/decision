@@ -1,5 +1,6 @@
 package com.ye.decision.controller;
 
+import com.ye.decision.mapper.ChatMessageMapper;
 import com.ye.decision.service.AgentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,8 @@ class ChatControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean AgentService agentService;
+    // MyBatis-Plus Mapper 在 @WebMvcTest 中没有 SqlSessionFactory，需要 mock
+    @MockBean ChatMessageMapper chatMessageMapper;
 
     @Test
     void stream_returnsSseContentType() throws Exception {

@@ -2,6 +2,7 @@ package com.ye.decision.config;
 
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ye.decision.mq.ChatMemoryPublisher;
 import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -28,9 +29,11 @@ public class AiConfig {
      * The MessageChatMemoryAdvisor reads/writes via this repository on every turn.
      */
     @Bean
-    public ChatMemory chatMemory(RedissonClient redissonClient, ObjectMapper objectMapper) {
+    public ChatMemory chatMemory(RedissonClient redissonClient,
+                                 ObjectMapper objectMapper,
+                                 ChatMemoryPublisher publisher) {
         return MessageWindowChatMemory.builder()
-            .chatMemoryRepository(new RedissonChatMemoryRepository(redissonClient, objectMapper))
+            .chatMemoryRepository(new RedissonChatMemoryRepository(redissonClient, objectMapper, publisher))
             .maxMessages(memoryWindowSize)
             .build();
     }

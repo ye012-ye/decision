@@ -1,6 +1,8 @@
 package com.ye.decision.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ye.decision.mq.ChatMemoryMqMessage;
+import com.ye.decision.mq.ChatMemoryPublisher;
 import org.redisson.api.RList;
 import org.redisson.api.RSet;
 import org.redisson.api.RedissonClient;
@@ -13,21 +15,27 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Redis-backed ChatMemoryRepository using Redisson.
- * Each conversation's messages are stored as a JSON list at "chat:memory:{conversationId}".
- * All known conversation IDs are tracked in a Redis set at "chat:memory:__ids__".
+ * 使用 Redisson 支持的 ChatMemoryRepository。
+ * 每个对话的消息都以 JSON 列表存储在 "chat：memory：{conversationId}"。
+ * 所有已知的对话ID都被记录在Redis的"chat：memory：__ids__"中。
+ * saveAll() 同时将 conversationId 加入 pending 集合并发布 MQ 消息供异步写入 MySQL。
  */
 public class RedissonChatMemoryRepository implements ChatMemoryRepository {
 
-    private static final String KEY_PREFIX = "chat:memory:";
-    private static final String IDS_KEY    = "chat:memory:__ids__";
+    public static final String KEY_PREFIX  = "chat:memory:";
+    public static final String IDS_KEY     = "chat:memory:__ids__";
+    public static final String PENDING_KEY = "chat:memory:pending:sync";
 
-    private final RedissonClient redissonClient;
-    private final ObjectMapper   objectMapper;
+    private final RedissonClient       redissonClient;
+    private final ObjectMapper         objectMapper;
+    private final ChatMemoryPublisher  publisher;
 
-    public RedissonChatMemoryRepository(RedissonClient redissonClient, ObjectMapper objectMapper) {
+    public RedissonChatMemoryRepository(RedissonClient redissonClient,
+                                        ObjectMapper objectMapper,
+                                        ChatMemoryPublisher publisher) {
         this.redissonClient = redissonClient;
         this.objectMapper   = objectMapper;
+        this.publisher      = publisher;
     }
 
     @Override
@@ -44,17 +52,30 @@ public class RedissonChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
+        // 1. 写 Redis
         RList<String> list = redissonClient.getList(KEY_PREFIX + conversationId);
         list.clear();
         messages.stream().map(this::serialize).forEach(list::add);
         redissonClient.<String>getSet(IDS_KEY).add(conversationId);
+
+        // 2. 加入 pending 集合（定时任务保底）
+        redissonClient.<String>getSet(PENDING_KEY).add(conversationId);
+
+        // 3. 发布 MQ 消息（异步写 MySQL）
+        List<ChatMemoryMqMessage.MessageItem> items = messages.stream()
+            .map(m -> new ChatMemoryMqMessage.MessageItem(m.getMessageType().getValue(), m.getText()))
+            .toList();
+        publisher.publish(new ChatMemoryMqMessage(conversationId, items));
     }
 
     @Override
     public void deleteByConversationId(String conversationId) {
         redissonClient.getList(KEY_PREFIX + conversationId).delete();
         redissonClient.<String>getSet(IDS_KEY).remove(conversationId);
+        redissonClient.<String>getSet(PENDING_KEY).remove(conversationId);
     }
+
+    // ── serialization ────────────────────────────────────────────────────────
 
     private String serialize(Message message) {
         try {
@@ -68,20 +89,28 @@ public class RedissonChatMemoryRepository implements ChatMemoryRepository {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Message deserialize(String json) {
+        ChatMemoryMqMessage.MessageItem item = parseItem(json);
+        return switch (item.type()) {
+            case "user"      -> new UserMessage(item.text());
+            case "assistant" -> new AssistantMessage(item.text());
+            case "system"    -> new SystemMessage(item.text());
+            default -> throw new IllegalArgumentException("Unknown message type: " + item.type());
+        };
+    }
+
+    /** Static helper so the scheduler can reuse parsing without holding an instance. */
+    @SuppressWarnings("unchecked")
+    public static ChatMemoryMqMessage.MessageItem parseItem(String json) {
         try {
-            Map<String, Object> map = objectMapper.readValue(json, Map.class);
-            String type = (String) map.get("type");
-            String text = (String) map.get("text");
-            return switch (type) {
-                case "user"      -> new UserMessage(text);
-                case "assistant" -> new AssistantMessage(text);
-                case "system"    -> new SystemMessage(text);
-                default -> throw new IllegalArgumentException("Unknown message type: " + type);
-            };
+            ObjectMapper om = new ObjectMapper();
+            Map<String, Object> map = om.readValue(json, Map.class);
+            return new ChatMemoryMqMessage.MessageItem(
+                (String) map.get("type"),
+                (String) map.get("text")
+            );
         } catch (Exception e) {
-            throw new RuntimeException("Failed to deserialize message", e);
+            throw new RuntimeException("Failed to parse message item", e);
         }
     }
 }
