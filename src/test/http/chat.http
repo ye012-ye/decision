@@ -1,0 +1,109 @@
+### 基础配置
+@host = http://localhost:8080
+@accept = text/event-stream;charset=UTF-8
+
+###
+# 测试1：普通问答
+# 预期：SSE 流式返回 AI 回答，最后一帧为 [DONE]
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-001",
+  "message": "你好，简单介绍一下你自己"
+}
+
+###
+# 测试2：多轮对话（同 sessionId 保持上下文）
+# 先发第一条，再发第二条，AI 应能记住上文
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-002",
+  "message": "我叫张三，我是一名Java开发工程师"
+}
+
+###
+# 测试2b：验证多轮记忆（接上条，sessionId 相同）
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-002",
+  "message": "我之前说我叫什么名字？做什么工作的？"
+}
+
+###
+# 测试3：查询 Redis（触发 queryRedisTool）
+# 预期：AI 调用工具查询 Redis，返回 key 的值或不存在提示
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-003",
+  "message": "帮我查一下 Redis 里 key 为 user:1001 的 hash 数据"
+}
+
+###
+# 测试4：查询 MySQL（触发 queryMysqlTool）
+# 预期：AI 调用工具向下游服务查询订单数据
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-004",
+  "message": "查询一下订单系统里最近的订单信息"
+}
+
+###
+# 测试5：调用外部 API（触发 callExternalApiTool）
+# 预期：AI 调用天气工具返回当前天气信息
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-005",
+  "message": "北京今天天气怎么样？"
+}
+
+###
+# 测试6：多工具链式调用（ReAct 多步推理）
+# 预期：AI 先查 Redis 获取用户信息，再查订单，组合回答
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-006",
+  "message": "帮我查一下用户 user:1001 的基本信息，以及他最近的订单状态"
+}
+
+###
+# 测试7：不同 sessionId 验证会话隔离
+# 预期：新 session 不知道 test-session-002 里的信息
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-007",
+  "message": "我之前说我叫什么名字？"
+}
+
+###
+# 测试8：异常场景 - 缺少必填字段
+# 预期：返回 400 或 500 错误
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: {{accept}}
+
+{
+  "sessionId": "test-session-008"
+}

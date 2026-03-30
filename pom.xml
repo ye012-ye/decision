@@ -17,27 +17,41 @@
     <description>Enterprise AI Agent Service</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
+        <spring-ai-alibaba.version>1.1.2.0</spring-ai-alibaba.version>
+        <spring-cloud-alibaba.version>2023.0.3.2</spring-cloud-alibaba.version>
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
+        <spring-ai.version>1.1.2</spring-ai.version>
+        <redisson.version>3.35.0</redisson.version>
+        <mybatis-plus.version>3.5.10.1</mybatis-plus.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Spring AI 核心 BOM -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type><scope>import</scope>
+            </dependency>
+            <!-- Spring AI Alibaba BOM（管理 alibaba 自有模块版本） -->
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-bom</artifactId>
-                <version>1.1.2.0</version>
+                <version>${spring-ai-alibaba.version}</version>
                 <type>pom</type><scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
-                <version>2023.0.3.2</version>
+                <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type><scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
-                <version>2023.0.3</version>
+                <version>${spring-cloud.version}</version>
                 <type>pom</type><scope>import</scope>
             </dependency>
         </dependencies>
@@ -50,11 +64,17 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Jakarta Bean Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
         <!-- Spring AI Alibaba DashScope (ChatClient + FunctionCallback) -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
-            <version>1.1.2.0</version>
+            <version>${spring-ai-alibaba.version}</version>
         </dependency>
 
         <!-- Nacos 配置中心 -->
@@ -79,7 +99,7 @@
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>3.35.0</version>
+            <version>${redisson.version}</version>
         </dependency>
 
         <!-- Bootstrap Context (bootstrap.yaml) -->
@@ -110,7 +130,19 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-            <version>3.5.10.1</version>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <!-- Milvus Vector Store -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
+        </dependency>
+
+        <!-- Tika Document Reader（PDF、Word、HTML 等多格式解析） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
         </dependency>
 
         <!-- MySQL -->

@@ -9,4 +9,8 @@ public record Result<T>(int code, String msg, T data) {
     public static <T> Result<T> error(String msg) {
         return new Result<>(500, msg, null);
     }
+
+    public static <T> Result<T> error(int code, String msg) {
+        return new Result<>(code, msg, null);
+    }
 }

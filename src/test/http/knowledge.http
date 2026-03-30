@@ -1,0 +1,65 @@
+### 基础配置
+@host = http://localhost:8080
+
+###
+# 1. 创建知识库
+POST {{host}}/api/kb
+Content-Type: application/json;charset=UTF-8
+
+{
+  "kbCode": "product-docs",
+  "kbName": "产品文档库",
+  "description": "存放产品说明书、操作手册、FAQ",
+  "owner": "tech-team"
+}
+
+###
+# 2. 查询所有知识库
+GET {{host}}/api/kb
+
+###
+# 3. 查询单个知识库
+GET {{host}}/api/kb/product-docs
+
+###
+# 4. 上传文档到知识库（PDF/Word/TXT 等）
+POST {{host}}/api/kb/product-docs/documents
+Content-Type: multipart/form-data; boundary=----FormBoundary
+
+------FormBoundary
+Content-Disposition: form-data; name="file"; filename="user-guide.pdf"
+Content-Type: application/pdf
+
+< ./test-files/user-guide.pdf
+------FormBoundary
+Content-Disposition: form-data; name="uploadedBy"
+
+admin
+------FormBoundary--
+
+###
+# 5. 查看知识库中的文档列表
+GET {{host}}/api/kb/product-docs/documents
+
+###
+# 6. 查看文档摄入状态（替换实际 docId）
+GET {{host}}/api/kb/product-docs/documents/替换为实际docId/status
+
+###
+# 7. 通过 Agent 聊天调用知识库搜索（ReAct 会自动选择 knowledgeSearchTool）
+POST {{host}}/api/chat/stream
+Content-Type: application/json;charset=UTF-8
+Accept: text/event-stream;charset=UTF-8
+
+{
+  "sessionId": "test-rag-001",
+  "message": "帮我在产品文档库(product-docs)中查一下用户手册里关于安装步骤的说明"
+}
+
+###
+# 8. 删除文档（替换实际 docId）
+DELETE {{host}}/api/kb/product-docs/documents/替换为实际docId
+
+###
+# 9. 删除知识库（级联删除所有文档和向量）
+DELETE {{host}}/api/kb/product-docs

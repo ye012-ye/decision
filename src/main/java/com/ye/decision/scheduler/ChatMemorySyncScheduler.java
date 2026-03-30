@@ -34,9 +34,13 @@ public class ChatMemorySyncScheduler {
     @Scheduled(fixedDelay = 60_000)
     public void syncPending() {
         var pendingSet = redissonClient.<String>getSet(RedissonChatMemoryRepository.PENDING_KEY);
-        if (pendingSet == null) return;
+        if (pendingSet == null) {
+            return;
+        }
         var pendingIds = pendingSet.readAll();
-        if (pendingIds.isEmpty()) return;
+        if (pendingIds.isEmpty()) {
+            return;
+        }
 
         log.info("ChatMemorySyncScheduler: {} pending conversation(s) to sync", pendingIds.size());
         for (String conversationId : pendingIds) {

@@ -1,11 +1,14 @@
 package com.ye.decision.controller;
 
+import com.ye.decision.config.ThreadPoolConfig;
+import com.ye.decision.dto.ReActEvent;
 import com.ye.decision.mapper.ChatMessageMapper;
 import com.ye.decision.service.AgentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -19,16 +22,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ChatController.class)
+@Import(ThreadPoolConfig.class)
 class ChatControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean AgentService agentService;
-    // MyBatis-Plus Mapper 在 @WebMvcTest 中没有 SqlSessionFactory，需要 mock
     @MockBean ChatMessageMapper chatMessageMapper;
 
     @Test
     void stream_returnsSseContentType() throws Exception {
-        when(agentService.chat(any(), any())).thenReturn(Flux.just("hello"));
+        when(agentService.chat(any(), any()))
+            .thenReturn(Flux.just(ReActEvent.answer("hello")));
 
         MvcResult async = mockMvc.perform(post("/api/chat/stream")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -42,12 +46,17 @@ class ChatControllerTest {
     }
 
     @Test
-    void stream_emitsTokensAndDoneSignal() throws Exception {
-        when(agentService.chat("s1", "hi")).thenReturn(Flux.just("Hello", " World"));
+    void stream_emitsReActEventsAndDoneSignal() throws Exception {
+        when(agentService.chat("s1", "查询订单")).thenReturn(Flux.just(
+            ReActEvent.thought("需要查询订单数据"),
+            ReActEvent.action("queryMysqlTool", "{\"target\":\"order-service\",\"query\":\"SELECT * FROM orders\"}"),
+            ReActEvent.observation("{\"data\":[]}"),
+            ReActEvent.answer("未找到相关订单")
+        ));
 
         MvcResult async = mockMvc.perform(post("/api/chat/stream")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"sessionId\":\"s1\",\"message\":\"hi\"}"))
+                .content("{\"sessionId\":\"s1\",\"message\":\"查询订单\"}"))
             .andExpect(request().asyncStarted())
             .andReturn();
 
@@ -57,7 +66,10 @@ class ChatControllerTest {
             .andExpect(status().isOk());
 
         String body = async.getResponse().getContentAsString();
-        assertThat(body).contains("Hello");
-        assertThat(body).contains("[DONE]");
+        assertThat(body).contains("event:thought");
+        assertThat(body).contains("event:action");
+        assertThat(body).contains("event:observation");
+        assertThat(body).contains("event:answer");
+        assertThat(body).contains("event:done");
     }
 }

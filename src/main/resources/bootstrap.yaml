@@ -2,37 +2,37 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: decision
+
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.83.128:8848
+        namespace: dev
+        group: DEFAULT_GROUP
+        file-extension: yaml
+      discovery:
+        server-addr: 192.168.83.128:8848
+        namespace: dev
+
   # 数据源（MySQL）
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/decision?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://192.168.83.128:3306/decision?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
-    password: root
+    password: "1234"
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
       connection-timeout: 30000
 
-
-  application:
-    name: decision
-  cloud:
-    nacos:
-      config:
-        server-addr: 127.0.0.1:8848
-        namespace: dev
-        group: DEFAULT_GROUP
-        file-extension: yaml
-      discovery:
-        server-addr: 127.0.0.1:8848
-        namespace: dev
-
   # RabbitMQ
   rabbitmq:
-    host: 127.0.0.1
+    host: 192.168.83.128
     port: 5672
-    username: guest
-    password: guest
+    username: root
+    password: "1234"
     virtual-host: /
     listener:
       simple:
@@ -44,7 +44,7 @@ spring:
   # Redis（Redisson starter 也读此配置作为兜底）
   data:
     redis:
-      host: 127.0.0.1
+      host: 192.168.83.128
       port: 6379
       database: 0
 
@@ -56,15 +56,32 @@ spring:
   # Spring AI DashScope（敏感值由 Nacos 下发，此处提供默认占位）
   ai:
     dashscope:
-      api-key: ${DASHSCOPE_API_KEY:your-api-key-here}
+      api-key: ${DASHSCOPE_API_KEY:sk-0f9206e250674c538ac03de6c3aa8b64}
+      chat:
+        options:
+          model: glm-5
+          temperature: 0.7
+      embedding:
+        options:
+          model: text-embedding-v3
+          dimensions: 1024
+    vectorstore:
+      milvus:
+        client:
+          host: ${MILVUS_HOST:192.168.83.128}
+          port: ${MILVUS_PORT:19530}
+        database-name: default
+        collection-name: knowledge_vectors
+        embedding-dimension: 1024
+        index-type: IVF_FLAT  # HNSW
+        metric-type: COSINE
+        initialize-schema: true
 
-# Redisson 详细连接配置
-redisson:
-  single-server-config:
-    address: redis://127.0.0.1:6379
-    database: 0
-    connection-minimum-idle-size: 5
-    connection-pool-size: 20
+  # 文件上传
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 # MyBatis-Plus
 mybatis-plus:
@@ -79,6 +96,8 @@ mybatis-plus:
 decision:
   agent:
     memory-window-size: 20
+  rag:
+    upload-dir: ${RAG_UPLOAD_DIR:./uploads/knowledge}
   external:
     weather-url: http://api.weather.example.com/current
     logistics-url: http://api.logistics.example.com/track
@@ -90,4 +109,3 @@ logging:
     com.ye.decision: DEBUG
     org.springframework.ai: INFO
     com.baomidou.mybatisplus: INFO
-
