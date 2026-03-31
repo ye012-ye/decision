@@ -40,6 +40,9 @@ spring:
         retry:
           enabled: true
           max-attempts: 3
+          initial-interval: 2000
+          multiplier: 3.0
+          max-interval: 30000
 
   # Redis（Redisson starter 也读此配置作为兜底）
   data:

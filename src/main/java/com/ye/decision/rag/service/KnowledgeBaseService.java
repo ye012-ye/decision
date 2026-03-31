@@ -1,6 +1,7 @@
 package com.ye.decision.rag.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ye.decision.rag.domain.KbStatus;
 import com.ye.decision.rag.dto.KnowledgeBaseReq;
 import com.ye.decision.rag.dto.KnowledgeBaseVO;
 import com.ye.decision.rag.entity.KnowledgeBaseEntity;
@@ -18,6 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 知识库管理服务。
+ * <p>
+ * 提供知识库的创建（含唯一性校验）、查询、更新和删除。
+ * 删除操作在事务中级联清除 Milvus 向量 → 文档记录 → 知识库记录。
+ *
+ * @author ye
+ */
 @Service
 public class KnowledgeBaseService {
 
@@ -35,6 +44,9 @@ public class KnowledgeBaseService {
         this.vectorStore = vectorStore;
     }
 
+    /**
+     * 创建知识库。kbCode 不允许重复，重复时抛出 {@link RagException}。
+     */
     public KnowledgeBaseVO create(KnowledgeBaseReq req) {
         // 唯一性校验
         if (getByCode(req.kbCode()) != null) {
@@ -46,7 +58,7 @@ public class KnowledgeBaseService {
         entity.setKbName(req.kbName());
         entity.setDescription(req.description());
         entity.setOwner(req.owner());
-        entity.setStatus(1);
+        entity.setStatus(KbStatus.ACTIVE);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
         kbMapper.insert(entity);
@@ -61,6 +73,10 @@ public class KnowledgeBaseService {
                 .eq(KnowledgeBaseEntity::getKbCode, kbCode));
     }
 
+    /**
+     * 按 kbCode 查询知识库，不存在时抛出 {@link RagException}。
+     * 适用于需要确保知识库存在的场景（如上传文档前校验）。
+     */
     public KnowledgeBaseEntity requireByCode(String kbCode) {
         KnowledgeBaseEntity entity = getByCode(kbCode);
         if (entity == null) {
@@ -88,7 +104,12 @@ public class KnowledgeBaseService {
         return KnowledgeBaseVO.from(entity);
     }
 
-    @Transactional
+    /**
+     * 删除知识库及其全部关联数据（事务）。
+     * <p>
+     * 删除顺序：Milvus 向量 → 文档 DB 记录 → 知识库 DB 记录。
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void delete(String kbCode) {
         requireByCode(kbCode);
 

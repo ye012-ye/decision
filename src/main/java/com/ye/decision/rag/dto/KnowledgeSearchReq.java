@@ -5,7 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * RAG 知识库搜索工具的入参。
+ * RAG 知识库检索工具的入参，由 Agent 在 ReAct 循环中自动填充。
+ *
+ * @author ye
+ * @param query 自然语言检索内容
+ * @param kbCode 目标知识库编码，用于 Milvus 过滤表达式
+ * @param topK   返回最相似的文档片段数量，默认 5
  */
 public record KnowledgeSearchReq(
 

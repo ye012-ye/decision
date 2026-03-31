@@ -9,6 +9,10 @@ import java.net.URI;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * 外部 API 调用工具。
+ * @author ye
+ */
 public class CallExternalApiTool implements Function<ApiCallReq, String> {
 
     private final RestTemplate restTemplate;

@@ -4,6 +4,14 @@ import com.ye.decision.rag.config.RagConfig;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * 文档摄入消息发布者。
+ * <p>
+ * 将 {@link DocumentIngestionMessage} 发送到 RabbitMQ 的文档摄入交换机，
+ * 实现上传与摄入的异步解耦。
+ *
+ * @author ye
+ */
 @Component
 public class DocumentIngestionPublisher {
 

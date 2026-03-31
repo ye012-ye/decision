@@ -1,9 +1,18 @@
 package com.ye.decision.rag.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.ye.decision.rag.domain.KbStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * 知识库实体，对应 {@code knowledge_base} 表。
+ * <p>
+ * 每个知识库通过 {@code kbCode} 唯一标识，关联 Milvus 中的向量数据
+ * 和 {@link KnowledgeDocumentEntity} 中的文档元数据。
+ *
+ * @author ye
+ */
 @TableName("knowledge_base")
 public class KnowledgeBaseEntity {
 
@@ -21,7 +30,7 @@ public class KnowledgeBaseEntity {
     private String owner;
 
     /** 1=active 0=disabled */
-    private Integer status;
+    private KbStatus status;
 
     @TableField(value = "created_at", fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
@@ -41,8 +50,8 @@ public class KnowledgeBaseEntity {
     public void setDescription(String description) { this.description = description; }
     public String getOwner() { return owner; }
     public void setOwner(String owner) { this.owner = owner; }
-    public Integer getStatus() { return status; }
-    public void setStatus(Integer status) { this.status = status; }
+    public KbStatus getStatus() { return status; }
+    public void setStatus(KbStatus status) { this.status = status; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

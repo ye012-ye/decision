@@ -5,6 +5,16 @@ import com.ye.decision.rag.domain.DocumentStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * 知识库文档实体，对应 {@code knowledge_document} 表。
+ * <p>
+ * 记录文档元数据（文件名、大小、类型）和摄入状态。
+ * 文件本体存储在磁盘 {@code filePath}，切片后的向量存储在 Milvus，
+ * 通过 {@code doc_id} 元数据关联。
+ *
+ * @author ye
+ * @see com.ye.decision.rag.domain.DocumentStatus
+ */
 @TableName("knowledge_document")
 public class KnowledgeDocumentEntity {
 

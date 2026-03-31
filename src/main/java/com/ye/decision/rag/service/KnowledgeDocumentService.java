@@ -26,6 +26,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * 知识库文档管理服务。
+ * <p>
+ * 负责文档的上传（含类型白名单校验）、状态查询和删除。
+ * 上传后通过 MQ 异步触发摄入管线，前端可轮询状态接口跟踪进度。
+ *
+ * @author ye
+ * @see DocumentIngestionService
+ */
 @Service
 public class KnowledgeDocumentService {
 
@@ -54,6 +63,16 @@ public class KnowledgeDocumentService {
         this.vectorStore = vectorStore;
     }
 
+    /**
+     * 上传文档到指定知识库。
+     * <p>
+     * 流程：校验知识库存在 → 校验文件非空及类型 → 落盘 → 写 DB(PENDING) → 发 MQ 异步摄入。
+     *
+     * @param kbCode     目标知识库编码
+     * @param file       上传的文件
+     * @param uploadedBy 上传者标识（可选）
+     * @return 包含 docId 和初始状态的响应
+     */
     public DocumentUploadResp upload(String kbCode, MultipartFile file, String uploadedBy) throws IOException {
         // 1. 校验知识库存在
         kbService.requireByCode(kbCode);
@@ -117,7 +136,12 @@ public class KnowledgeDocumentService {
                 .eq(KnowledgeDocumentEntity::getDocId, docId));
     }
 
-    @Transactional
+    /**
+     * 删除文档及其全部关联数据（事务）。
+     * <p>
+     * 删除顺序：Milvus 向量 → 磁盘文件 → DB 记录。
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void delete(String docId) {
         KnowledgeDocumentEntity entity = getByDocId(docId);
         if (entity == null) {

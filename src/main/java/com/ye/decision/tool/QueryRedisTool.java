@@ -10,6 +10,11 @@ import org.redisson.api.RedissonClient;
 import java.util.*;
 import java.util.function.Function;
 
+/**
+ * Redis 查询工具。
+ * @author ye
+ */
+
 public class QueryRedisTool implements Function<QueryRedisReq, String> {
 
     private final RedissonClient redissonClient;

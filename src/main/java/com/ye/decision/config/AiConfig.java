@@ -6,7 +6,7 @@ import com.ye.decision.dto.QueryMysqlReq;
 import com.ye.decision.dto.QueryRedisReq;
 import com.ye.decision.mq.ChatMemoryPublisher;
 import com.ye.decision.rag.dto.KnowledgeSearchReq;
-import com.ye.decision.rag.tool.KnowledgeSearchTool;
+import com.ye.decision.tool.KnowledgeSearchTool;
 import com.ye.decision.tool.CallExternalApiTool;
 import com.ye.decision.tool.QueryMysqlTool;
 import com.ye.decision.tool.QueryRedisTool;
@@ -24,6 +24,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * @author ye
+ */
 @Configuration
 public class AiConfig {
 

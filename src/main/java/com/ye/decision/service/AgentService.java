@@ -21,9 +21,14 @@ import reactor.core.publisher.FluxSink;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * @author ye
+ */
 @Service
 public class AgentService {
 
@@ -35,17 +40,29 @@ public class AgentService {
     private final String systemPrompt;
     private final List<ToolCallback> toolCallbacks;
     private final Map<String, ToolCallback> toolMap;
+    private final ExecutorService sseExecutor;
+
+    /**
+     * 专用工具的关键词映射，用于动态工具选择。
+     * Redis 和 MySQL 作为通用工具始终包含，专用工具按关键词匹配动态加入。
+     */
+    private static final Map<String, List<String>> TOOL_KEYWORDS = Map.of(
+        "callExternalApiTool", List.of("天气", "weather", "物流", "logistics", "快递", "汇率", "exchange"),
+        "knowledgeSearchTool", List.of("知识库", "文档", "手册", "faq", "政策", "规范", "knowledge", "搜索知识")
+    );
 
     public AgentService(ChatModel chatModel,
                         ChatMemory chatMemory,
                         String systemPrompt,
-                        List<ToolCallback> toolCallbacks) {
+                        List<ToolCallback> toolCallbacks,
+                        ExecutorService sseExecutor) {
         this.chatModel = chatModel;
         this.chatMemory = chatMemory;
         this.systemPrompt = systemPrompt;
         this.toolCallbacks = toolCallbacks;
         this.toolMap = toolCallbacks.stream()
             .collect(Collectors.toMap(tc -> tc.getToolDefinition().name(), Function.identity()));
+        this.sseExecutor = sseExecutor;
     }
 
     /**
@@ -66,6 +83,30 @@ public class AgentService {
         }, FluxSink.OverflowStrategy.BUFFER);
     }
 
+    /**
+     * 根据用户消息动态选择相关工具，减少 LLM 选择空间和 token 消耗。
+     * <p>
+     * Redis 和 MySQL 作为通用数据查询工具始终包含；
+     * 专用工具（外部 API、知识库搜索）仅在消息匹配相关关键词时加入。
+     * 如果没有匹配到任何专用工具关键词，则回退为全部工具。
+     */
+    private List<ToolCallback> selectTools(String message) {
+        List<ToolCallback> selected = new ArrayList<>();
+        selected.add(toolMap.get("queryRedisTool"));
+        selected.add(toolMap.get("queryMysqlTool"));
+
+        String lowerMessage = message.toLowerCase();
+        for (Map.Entry<String, List<String>> entry : TOOL_KEYWORDS.entrySet()) {
+            if (entry.getValue().stream().anyMatch(lowerMessage::contains)) {
+                ToolCallback cb = toolMap.get(entry.getKey());
+                if (cb != null) {
+                    selected.add(cb);
+                }
+            }
+        }
+        return selected;
+    }
+
     private void doReActLoop(String sessionId, String message, FluxSink<ReActEvent> sink) {
         // 1. 加载历史消息
         List<Message> history = chatMemory.get(sessionId);
@@ -74,17 +115,23 @@ public class AgentService {
         messages.addAll(history);
         messages.add(new UserMessage(message));
 
-        // 2. 构建 ChatOptions：注册工具但禁止框架自动执行
+        // 2. 动态选择工具并构建 ChatOptions
+        List<ToolCallback> selectedTools = selectTools(message);
         DashScopeChatOptions options = DashScopeChatOptions.builder()
-            .toolCallbacks(toolCallbacks)
+            .toolCallbacks(selectedTools)
             .internalToolExecutionEnabled(false)
             .build();
+
+        // 用于记录本轮完整对话（包括工具交互），以便写入 ChatMemory
+        List<Message> turnMessages = new ArrayList<>();
+        turnMessages.add(new UserMessage(message));
 
         // 3. ReAct 循环
         for (int step = 0; step < MAX_REACT_STEPS; step++) {
             ChatResponse response = chatModel.call(new Prompt(messages, options));
             AssistantMessage assistant = response.getResult().getOutput();
             messages.add(assistant);
+            turnMessages.add(assistant);
 
             // 模型在调用工具前可能输出推理文本（Thought）
             String thought = assistant.getText();
@@ -92,18 +139,38 @@ public class AgentService {
                 sink.next(ReActEvent.thought(thought));
             }
 
+            // 有工具调用
             if (assistant.hasToolCalls()) {
-                // Action → Observation
-                List<ToolResponseMessage.ToolResponse> toolResponses = new ArrayList<>();
-                for (AssistantMessage.ToolCall tc : assistant.getToolCalls()) {
-                    sink.next(ReActEvent.action(tc.name(), tc.arguments()));
+                List<AssistantMessage.ToolCall> toolCalls = assistant.getToolCalls();
+                List<ToolResponseMessage.ToolResponse> toolResponses;
 
+                if (toolCalls.size() == 1) {
+                    // 单工具调用 — 直接执行
+                    AssistantMessage.ToolCall tc = toolCalls.get(0);
+                    sink.next(ReActEvent.action(tc.name(), tc.arguments()));
                     String result = executeTool(tc);
                     sink.next(ReActEvent.observation(result));
-
-                    toolResponses.add(new ToolResponseMessage.ToolResponse(tc.id(), tc.name(), result));
+                    toolResponses = List.of(new ToolResponseMessage.ToolResponse(tc.id(), tc.name(), result));
+                } else {
+                    // 多工具调用 — 并行执行，降低整体延迟
+                    for (AssistantMessage.ToolCall tc : toolCalls) {
+                        sink.next(ReActEvent.action(tc.name(), tc.arguments()));
+                    }
+                    List<CompletableFuture<ToolResponseMessage.ToolResponse>> futures = toolCalls.stream()
+                        .map(tc -> CompletableFuture.supplyAsync(() -> {
+                            String result = executeTool(tc);
+                            return new ToolResponseMessage.ToolResponse(tc.id(), tc.name(), result);
+                        }, sseExecutor))
+                        .toList();
+                    toolResponses = futures.stream().map(CompletableFuture::join).toList();
+                    for (ToolResponseMessage.ToolResponse tr : toolResponses) {
+                        sink.next(ReActEvent.observation(tr.responseData()));
+                    }
                 }
-                messages.add(ToolResponseMessage.builder().responses(toolResponses).build());
+
+                ToolResponseMessage trm = ToolResponseMessage.builder().responses(toolResponses).build();
+                messages.add(trm);
+                turnMessages.add(trm);
             } else {
                 // 最终回答
                 if (thought != null && !thought.isBlank()) {
@@ -113,8 +180,8 @@ public class AgentService {
             }
         }
 
-        // 4. 保存本轮对话到 ChatMemory（只保存用户消息和最终助手回答）
-        chatMemory.add(sessionId, List.of(new UserMessage(message), messages.get(messages.size() - 1)));
+        // 4. 保存本轮完整对话到 ChatMemory（包含工具调用过程，支持跨轮次引用）
+        chatMemory.add(sessionId, turnMessages);
     }
 
     private String executeTool(AssistantMessage.ToolCall toolCall) {

@@ -6,6 +6,10 @@ import com.ye.decision.feign.DownstreamClient;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Mysql 查询工具。
+ * @author ye
+ */
 public class QueryMysqlTool implements Function<QueryMysqlReq, String> {
 
     private final Map<String, DownstreamClient> clients;
