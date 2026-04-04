@@ -26,6 +26,7 @@ public enum RagErrorCode {
     DOC_ID_INVALID(40002, "文档ID包含非法字符"),
     DOC_FILE_TYPE_UNSUPPORTED(40003, "不支持的文件类型"),
     DOC_FILE_EMPTY(40004, "上传文件为空"),
+    DOC_FILE_TOO_LARGE(40005, "文件大小超过上限"),
 
     /* ── 服务端错误 ──────────────────────────────────────────── */
 

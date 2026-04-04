@@ -21,10 +21,10 @@ public class DocumentIngestionPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publish(String kbCode, String docId, String filePath) {
+    public void publish(String kbCode, String docId, String filePath, String fileName) {
         rabbitTemplate.convertAndSend(
             RagConfig.INGESTION_EXCHANGE,
             RagConfig.INGESTION_ROUTING,
-            new DocumentIngestionMessage(kbCode, docId, filePath));
+            new DocumentIngestionMessage(kbCode, docId, filePath, fileName));
     }
 }

@@ -1,18 +1,18 @@
 package com.ye.decision.rag.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ye.decision.rag.domain.KbStatus;
-import com.ye.decision.rag.dto.KnowledgeBaseReq;
-import com.ye.decision.rag.dto.KnowledgeBaseVO;
-import com.ye.decision.rag.entity.KnowledgeBaseEntity;
-import com.ye.decision.rag.entity.KnowledgeDocumentEntity;
+import com.ye.decision.rag.domain.dto.KnowledgeBaseReq;
+import com.ye.decision.rag.domain.dto.KnowledgeBaseVO;
+import com.ye.decision.rag.domain.entity.KnowledgeBaseEntity;
+import com.ye.decision.rag.domain.entity.KnowledgeDocumentEntity;
+import com.ye.decision.rag.domain.enums.KbStatus;
 import com.ye.decision.rag.exception.RagErrorCode;
 import com.ye.decision.rag.exception.RagException;
 import com.ye.decision.rag.mapper.KnowledgeBaseMapper;
 import com.ye.decision.rag.mapper.KnowledgeDocumentMapper;
+import com.ye.decision.rag.search.DocumentStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +21,6 @@ import java.util.List;
 
 /**
  * 知识库管理服务。
- * <p>
- * 提供知识库的创建（含唯一性校验）、查询、更新和删除。
- * 删除操作在事务中级联清除 Milvus 向量 → 文档记录 → 知识库记录。
  *
  * @author ye
  */
@@ -34,21 +31,17 @@ public class KnowledgeBaseService {
 
     private final KnowledgeBaseMapper kbMapper;
     private final KnowledgeDocumentMapper docMapper;
-    private final VectorStore vectorStore;
+    private final DocumentStore documentStore;
 
     public KnowledgeBaseService(KnowledgeBaseMapper kbMapper,
                                 KnowledgeDocumentMapper docMapper,
-                                VectorStore vectorStore) {
+                                DocumentStore documentStore) {
         this.kbMapper = kbMapper;
         this.docMapper = docMapper;
-        this.vectorStore = vectorStore;
+        this.documentStore = documentStore;
     }
 
-    /**
-     * 创建知识库。kbCode 不允许重复，重复时抛出 {@link RagException}。
-     */
     public KnowledgeBaseVO create(KnowledgeBaseReq req) {
-        // 唯一性校验
         if (getByCode(req.kbCode()) != null) {
             throw new RagException(RagErrorCode.KB_CODE_DUPLICATE, req.kbCode());
         }
@@ -73,10 +66,6 @@ public class KnowledgeBaseService {
                 .eq(KnowledgeBaseEntity::getKbCode, kbCode));
     }
 
-    /**
-     * 按 kbCode 查询知识库，不存在时抛出 {@link RagException}。
-     * 适用于需要确保知识库存在的场景（如上传文档前校验）。
-     */
     public KnowledgeBaseEntity requireByCode(String kbCode) {
         KnowledgeBaseEntity entity = getByCode(kbCode);
         if (entity == null) {
@@ -104,24 +93,16 @@ public class KnowledgeBaseService {
         return KnowledgeBaseVO.from(entity);
     }
 
-    /**
-     * 删除知识库及其全部关联数据（事务）。
-     * <p>
-     * 删除顺序：Milvus 向量 → 文档 DB 记录 → 知识库 DB 记录。
-     */
     @Transactional(rollbackFor = Exception.class)
     public void delete(String kbCode) {
         requireByCode(kbCode);
 
-        // 1. 删除 Milvus 中该知识库的所有向量
-        vectorStore.delete("kb_code == '" + kbCode + "'");
+        documentStore.delete("kb_code == '" + kbCode + "'");
 
-        // 2. 删除文档元数据
         docMapper.delete(
             new LambdaQueryWrapper<KnowledgeDocumentEntity>()
                 .eq(KnowledgeDocumentEntity::getKbCode, kbCode));
 
-        // 3. 删除知识库记录
         kbMapper.delete(
             new LambdaQueryWrapper<KnowledgeBaseEntity>()
                 .eq(KnowledgeBaseEntity::getKbCode, kbCode));

@@ -1,7 +1,7 @@
-package com.ye.decision.rag.entity;
+package com.ye.decision.rag.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.ye.decision.rag.domain.DocumentStatus;
+import com.ye.decision.rag.domain.enums.DocumentStatus;
 
 import java.time.LocalDateTime;
 
@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  * 通过 {@code doc_id} 元数据关联。
  *
  * @author ye
- * @see com.ye.decision.rag.domain.DocumentStatus
+ * @see DocumentStatus
  */
 @TableName("knowledge_document")
 public class KnowledgeDocumentEntity {

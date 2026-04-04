@@ -1,4 +1,4 @@
-package com.ye.decision.rag.domain;
+package com.ye.decision.rag.domain.enums;
 
 import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;

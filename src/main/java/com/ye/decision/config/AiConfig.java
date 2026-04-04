@@ -5,7 +5,7 @@ import com.ye.decision.dto.ApiCallReq;
 import com.ye.decision.dto.QueryMysqlReq;
 import com.ye.decision.dto.QueryRedisReq;
 import com.ye.decision.mq.ChatMemoryPublisher;
-import com.ye.decision.rag.dto.KnowledgeSearchReq;
+import com.ye.decision.rag.domain.dto.KnowledgeSearchReq;
 import com.ye.decision.tool.KnowledgeSearchTool;
 import com.ye.decision.tool.CallExternalApiTool;
 import com.ye.decision.tool.QueryMysqlTool;

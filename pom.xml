@@ -24,6 +24,8 @@
         <spring-ai.version>1.1.2</spring-ai.version>
         <redisson.version>3.35.0</redisson.version>
         <mybatis-plus.version>3.5.10.1</mybatis-plus.version>
+        <milvus-sdk-version>2.6.13</milvus-sdk-version>
+        <commons-lang3.version>3.17.0</commons-lang3.version>
     </properties>
 
     <dependencyManagement>
@@ -132,11 +134,17 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
 
         <!-- Milvus Vector Store -->
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
+            <groupId>io.milvus</groupId>
+            <artifactId>milvus-sdk-java</artifactId>
+            <version>${milvus-sdk-version}</version>
         </dependency>
 
         <!-- Tika Document Reader（PDF、Word、HTML 等多格式解析） -->

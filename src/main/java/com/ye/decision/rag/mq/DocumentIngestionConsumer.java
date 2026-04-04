@@ -39,7 +39,7 @@ public class DocumentIngestionConsumer {
     public void onMessage(DocumentIngestionMessage message) {
         log.info("Received ingestion task: kbCode={}, docId={}", message.kbCode(), message.docId());
         try {
-            ingestionService.ingest(message.kbCode(), message.docId(), message.filePath());
+            ingestionService.ingest(message.kbCode(), message.docId(), message.filePath(), message.fileName());
         } catch (RuntimeException e) {
             // 瞬时故障：让异常传播给 Spring Retry 进行重试，
             // 重试耗尽后 Spring 会 reject 消息路由到 DLQ

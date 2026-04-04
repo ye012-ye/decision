@@ -1,7 +1,7 @@
-package com.ye.decision.rag.dto;
+package com.ye.decision.rag.domain.dto;
 
-import com.ye.decision.rag.domain.KbStatus;
-import com.ye.decision.rag.entity.KnowledgeBaseEntity;
+import com.ye.decision.rag.domain.entity.KnowledgeBaseEntity;
+import com.ye.decision.rag.domain.enums.KbStatus;
 
 import java.time.LocalDateTime;
 

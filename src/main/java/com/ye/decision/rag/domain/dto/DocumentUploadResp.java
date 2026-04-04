@@ -1,4 +1,4 @@
-package com.ye.decision.rag.dto;
+package com.ye.decision.rag.domain.dto;
 
 /**
  * 文档上传响应。

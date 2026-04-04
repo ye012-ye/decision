@@ -1,18 +1,19 @@
 package com.ye.decision.rag.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ye.decision.rag.domain.DocumentStatus;
-import com.ye.decision.rag.dto.DocumentUploadResp;
-import com.ye.decision.rag.dto.KnowledgeDocumentVO;
-import com.ye.decision.rag.entity.KnowledgeDocumentEntity;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ye.decision.rag.config.RagProperties;
+import com.ye.decision.rag.domain.dto.DocumentUploadResp;
+import com.ye.decision.rag.domain.dto.KnowledgeDocumentVO;
+import com.ye.decision.rag.domain.entity.KnowledgeDocumentEntity;
+import com.ye.decision.rag.domain.enums.DocumentStatus;
 import com.ye.decision.rag.exception.RagErrorCode;
 import com.ye.decision.rag.exception.RagException;
 import com.ye.decision.rag.mapper.KnowledgeDocumentMapper;
 import com.ye.decision.rag.mq.DocumentIngestionPublisher;
+import com.ye.decision.rag.search.DocumentStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,25 +23,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * 知识库文档管理服务。
- * <p>
- * 负责文档的上传（含类型白名单校验）、状态查询和删除。
- * 上传后通过 MQ 异步触发摄入管线，前端可轮询状态接口跟踪进度。
  *
  * @author ye
- * @see DocumentIngestionService
  */
 @Service
 public class KnowledgeDocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeDocumentService.class);
 
-    /** 允许上传的文件类型白名单 */
     private static final Set<String> ALLOWED_FILE_TYPES = Set.of(
         "pdf", "doc", "docx", "txt", "md", "html", "htm", "csv", "xls", "xlsx", "pptx"
     );
@@ -48,41 +43,34 @@ public class KnowledgeDocumentService {
     private final KnowledgeDocumentMapper documentMapper;
     private final KnowledgeBaseService kbService;
     private final DocumentIngestionPublisher ingestionPublisher;
-    private final VectorStore vectorStore;
-
-    @Value("${decision.rag.upload-dir:./uploads/knowledge}")
-    private String uploadDir;
+    private final DocumentStore documentStore;
+    private final RagProperties ragProperties;
 
     public KnowledgeDocumentService(KnowledgeDocumentMapper documentMapper,
                                     KnowledgeBaseService kbService,
                                     DocumentIngestionPublisher ingestionPublisher,
-                                    VectorStore vectorStore) {
+                                    DocumentStore documentStore,
+                                    RagProperties ragProperties) {
         this.documentMapper = documentMapper;
         this.kbService = kbService;
         this.ingestionPublisher = ingestionPublisher;
-        this.vectorStore = vectorStore;
+        this.documentStore = documentStore;
+        this.ragProperties = ragProperties;
     }
 
-    /**
-     * 上传文档到指定知识库。
-     * <p>
-     * 流程：校验知识库存在 → 校验文件非空及类型 → 落盘 → 写 DB(PENDING) → 发 MQ 异步摄入。
-     *
-     * @param kbCode     目标知识库编码
-     * @param file       上传的文件
-     * @param uploadedBy 上传者标识（可选）
-     * @return 包含 docId 和初始状态的响应
-     */
     public DocumentUploadResp upload(String kbCode, MultipartFile file, String uploadedBy) throws IOException {
-        // 1. 校验知识库存在
         kbService.requireByCode(kbCode);
 
-        // 2. 校验文件非空
         if (file.isEmpty()) {
             throw new RagException(RagErrorCode.DOC_FILE_EMPTY);
         }
 
-        // 3. 校验文件类型
+        // 文件大小校验
+        if (file.getSize() > ragProperties.getMaxFileSize()) {
+            throw new RagException(RagErrorCode.DOC_FILE_TOO_LARGE,
+                "文件大小 " + (file.getSize() / 1024 / 1024) + "MB，上限 " + (ragProperties.getMaxFileSize() / 1024 / 1024) + "MB");
+        }
+
         String originalName = file.getOriginalFilename();
         String fileType = extractFileType(originalName);
         if (!ALLOWED_FILE_TYPES.contains(fileType)) {
@@ -92,13 +80,11 @@ public class KnowledgeDocumentService {
 
         String docId = UUID.randomUUID().toString();
 
-        // 4. 保存文件到磁盘
-        Path dir = Paths.get(uploadDir, kbCode);
+        Path dir = Paths.get(ragProperties.getUploadDir(), kbCode);
         Files.createDirectories(dir);
         Path filePath = dir.resolve(docId + "." + fileType);
         file.transferTo(filePath.toFile());
 
-        // 5. 创建文档记录
         KnowledgeDocumentEntity entity = new KnowledgeDocumentEntity();
         entity.setKbCode(kbCode);
         entity.setDocId(docId);
@@ -113,21 +99,22 @@ public class KnowledgeDocumentService {
         entity.setUpdatedAt(LocalDateTime.now());
         documentMapper.insert(entity);
 
-        // 6. 发布异步摄入任务
-        ingestionPublisher.publish(kbCode, docId, filePath.toString());
+        ingestionPublisher.publish(kbCode, docId, filePath.toString(), originalName);
 
         log.info("Document uploaded: kbCode={}, docId={}, fileName={}", kbCode, docId, originalName);
         return new DocumentUploadResp(docId, originalName, DocumentStatus.PENDING.getCode());
     }
 
-    public List<KnowledgeDocumentVO> listByKbCode(String kbCode) {
-        return documentMapper.selectList(
+    /**
+     * 分页查询指定知识库下的文档列表。
+     */
+    public Page<KnowledgeDocumentVO> listByKbCode(String kbCode, int pageNum, int pageSize) {
+        Page<KnowledgeDocumentEntity> page = new Page<>(pageNum, pageSize);
+        Page<KnowledgeDocumentEntity> result = documentMapper.selectPage(page,
             new LambdaQueryWrapper<KnowledgeDocumentEntity>()
                 .eq(KnowledgeDocumentEntity::getKbCode, kbCode)
-                .orderByDesc(KnowledgeDocumentEntity::getCreatedAt))
-            .stream()
-            .map(KnowledgeDocumentVO::from)
-            .toList();
+                .orderByDesc(KnowledgeDocumentEntity::getCreatedAt));
+        return (Page<KnowledgeDocumentVO>) result.convert(KnowledgeDocumentVO::from);
     }
 
     public KnowledgeDocumentEntity getByDocId(String docId) {
@@ -136,11 +123,6 @@ public class KnowledgeDocumentService {
                 .eq(KnowledgeDocumentEntity::getDocId, docId));
     }
 
-    /**
-     * 删除文档及其全部关联数据（事务）。
-     * <p>
-     * 删除顺序：Milvus 向量 → 磁盘文件 → DB 记录。
-     */
     @Transactional(rollbackFor = Exception.class)
     public void delete(String docId) {
         KnowledgeDocumentEntity entity = getByDocId(docId);
@@ -148,24 +130,19 @@ public class KnowledgeDocumentService {
             throw new RagException(RagErrorCode.DOC_NOT_FOUND, docId);
         }
 
-        // 校验 docId 格式
         if (!docId.matches("^[a-zA-Z0-9_-]+$")) {
             throw new RagException(RagErrorCode.DOC_ID_INVALID, docId);
         }
 
-        // 1. 删除 Milvus 中该文档的向量
-        vectorStore.delete("doc_id == '" + docId + "'");
+        documentStore.delete("doc_id == '" + docId + "'");
 
-        // 2. 删除磁盘文件
         try {
             Files.deleteIfExists(Paths.get(entity.getFilePath()));
         } catch (IOException e) {
             log.warn("删除文件失败: {}", entity.getFilePath(), e);
         }
 
-        // 3. 删除 DB 记录
         documentMapper.deleteById(entity.getId());
-
         log.info("Document deleted: docId={}", docId);
     }
 

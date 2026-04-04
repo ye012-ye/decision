@@ -30,7 +30,7 @@ class AgentServiceTest {
         when(chatModel.call(any(Prompt.class))).thenReturn(response);
         when(chatMemory.get(any())).thenReturn(List.of());
 
-        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of());
+        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of(), null);
 
         StepVerifier.create(service.chat("s1", "hi"))
             .expectNext(ReActEvent.answer("你好，有什么可以帮你的？"))
@@ -67,7 +67,7 @@ class AgentServiceTest {
         when(toolCallback.getToolDefinition()).thenReturn(toolDef);
         when(toolCallback.call(anyString())).thenReturn("{\"result\":42}");
 
-        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of(toolCallback));
+        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of(toolCallback), null);
 
         StepVerifier.create(service.chat("s1", "查询"))
             .expectNext(ReActEvent.action("mockTool", "{\"q\":\"test\"}"))

@@ -1,7 +1,7 @@
-package com.ye.decision.rag.entity;
+package com.ye.decision.rag.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.ye.decision.rag.domain.KbStatus;
+import com.ye.decision.rag.domain.enums.KbStatus;
 
 import java.time.LocalDateTime;
 

@@ -1,8 +1,8 @@
 package com.ye.decision.rag.controller;
 
 import com.ye.decision.common.Result;
-import com.ye.decision.rag.dto.KnowledgeBaseReq;
-import com.ye.decision.rag.dto.KnowledgeBaseVO;
+import com.ye.decision.rag.domain.dto.KnowledgeBaseReq;
+import com.ye.decision.rag.domain.dto.KnowledgeBaseVO;
 import com.ye.decision.rag.service.KnowledgeBaseService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;

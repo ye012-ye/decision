@@ -1,4 +1,4 @@
-package com.ye.decision.rag.dto;
+package com.ye.decision.rag.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
