@@ -48,7 +48,11 @@ public class AgentService {
      */
     private static final Map<String, List<String>> TOOL_KEYWORDS = Map.of(
         "callExternalApiTool", List.of("天气", "weather", "物流", "logistics", "快递", "汇率", "exchange"),
-        "knowledgeSearchTool", List.of("知识库", "文档", "手册", "faq", "政策", "规范", "knowledge", "搜索知识")
+        "knowledgeSearchTool", List.of("知识库", "文档", "手册", "faq", "政策", "规范", "knowledge", "搜索知识"),
+        "mcpListTables", List.of("数据库", "有哪些表", "列出表", "table", "schema", "所有表"),
+        "mcpDescribeTable", List.of("表结构", "字段", "列", "column", "describe", "索引"),
+        "mcpQueryData", List.of("查询", "sql", "select", "统计", "报表", "数据分析", "聚合"),
+        "mcpExecuteSql", List.of("插入", "更新", "删除", "insert", "update", "delete", "修改数据")
     );
 
     public AgentService(ChatModel chatModel,

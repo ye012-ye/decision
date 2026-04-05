@@ -101,6 +101,28 @@ decision:
       collection-name: knowledge_vectors
       dense-dimension: 1024                              # 须与 embedding model 输出维度一致
       rrf-k: 60                                          # RRF 融合参数，值越大长尾排名权重越高
+  mcp:
+    enabled: true
+    write-enabled: false                             # 设为 true 启用 INSERT/UPDATE/DELETE
+    query-timeout-seconds: 30
+    max-row-limit: 1000
+    default-row-limit: 100
+    max-sql-length: 4096
+    table-whitelist: []                              # 静态白名单，也可通过 /api/mcp/whitelist 动态管理
+    table-blacklist:
+      - mcp_audit_log
+      - mcp_table_whitelist
+    forbidden-keywords:
+      - TRUNCATE
+      - DROP
+      - ALTER
+      - CREATE
+      - GRANT
+      - REVOKE
+      - INTO OUTFILE
+      - LOAD_FILE
+      - SLEEP
+      - BENCHMARK
   external:
     weather-url: http://api.weather.example.com/current
     logistics-url: http://api.logistics.example.com/track
