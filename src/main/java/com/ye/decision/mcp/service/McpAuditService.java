@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 public class McpAuditService {
 
     private static final Logger log = LoggerFactory.getLogger(McpAuditService.class);
+    /** 审计日志中 SQL 文本的最大存储长度，超出部分截断，防止超长 SQL 撑爆 DB 字段 */
     private static final int MAX_SQL_LOG_LENGTH = 4096;
 
     private final McpAuditLogMapper auditLogMapper;
@@ -32,7 +33,9 @@ public class McpAuditService {
     }
 
     /**
-     * 记录审计日志。审计失败不影响主流程。
+     * 记录审计日志。
+     * 用 try-catch 吞掉所有异常——审计是旁路功能，不能因为审计表满/连接超时
+     * 等原因导致正常的查询工具调用失败。
      */
     public void log(String toolName, String sql, SqlOperationType opType,
                     AuditStatus status, String errorMsg, int rowsAffected, long executionMs) {
@@ -69,6 +72,7 @@ public class McpAuditService {
         IPage<McpAuditLogEntity> entityPage = auditLogMapper.selectPage(
             new Page<>(page, size), wrapper
         );
+        // convert() 将 Entity 页转换为 VO 页，复用分页元信息（total、pages 等）
         return entityPage.convert(McpAuditLogVO::from);
     }
 }

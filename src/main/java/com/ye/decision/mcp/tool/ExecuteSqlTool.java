@@ -50,10 +50,10 @@ public class ExecuteSqlTool implements Function<ExecuteSqlReq, String> {
         String sql = req.sql();
 
         try {
-            // 安全校验（非只读模式）
+            // readOnly=false：允许 INSERT/UPDATE/DELETE，但仍然走完整校验链
             SqlOperationType opType = securityService.validateSql(sql, false);
 
-            // 拒绝 SELECT（应使用 mcpQueryData）
+            // SELECT 应该走 mcpQueryData（只读连接+行数限制），这里拒绝并引导 Agent 用正确的工具
             if (opType == SqlOperationType.SELECT) {
                 return "{\"error\":\"use_query_tool\",\"message\":\"SELECT 请使用 mcpQueryData 工具\"}";
             }

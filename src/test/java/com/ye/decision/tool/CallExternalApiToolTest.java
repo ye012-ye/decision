@@ -1,6 +1,6 @@
 package com.ye.decision.tool;
 
-import com.ye.decision.dto.ApiCallReq;
+import com.ye.decision.domain.dto.ApiCallReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;

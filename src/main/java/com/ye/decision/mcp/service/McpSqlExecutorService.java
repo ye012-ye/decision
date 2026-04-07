@@ -42,9 +42,12 @@ public class McpSqlExecutorService {
      */
     public List<Map<String, Object>> executeQuery(String sql, int maxRows, int timeout) {
         try (Connection conn = dataSource.getConnection()) {
+            // 标记连接为只读，部分数据库/驱动会据此优化（如 MySQL 走从库）
             conn.setReadOnly(true);
             try (java.sql.Statement stmt = conn.createStatement()) {
+                // setQueryTimeout: 超时后驱动会中断查询，防止慢 SQL 占用连接池
                 stmt.setQueryTimeout(timeout > 0 ? timeout : mcpProperties.getQueryTimeoutSeconds());
+                // setMaxRows: JDBC 驱动层面限制，与 SQL 的 LIMIT 双重保护
                 stmt.setMaxRows(maxRows > 0 ? Math.min(maxRows, mcpProperties.getMaxRowLimit())
                     : mcpProperties.getDefaultRowLimit());
 
@@ -52,6 +55,7 @@ public class McpSqlExecutorService {
                     return resultSetToList(rs);
                 }
             } finally {
+                // 归还连接前恢复读写模式，避免影响连接池中其他使用者
                 conn.setReadOnly(false);
             }
         } catch (SQLTimeoutException e) {
@@ -95,6 +99,7 @@ public class McpSqlExecutorService {
             String catalog = conn.getCatalog();
             List<Map<String, String>> tables = new ArrayList<>();
 
+            // 第4参数 {"TABLE"} 过滤只返回用户表，排除视图、系统表等
             try (ResultSet rs = meta.getTables(catalog, null, "%", new String[]{"TABLE"})) {
                 while (rs.next()) {
                     Map<String, String> table = new LinkedHashMap<>();
@@ -144,12 +149,12 @@ public class McpSqlExecutorService {
             }
             result.put("columns", columns);
 
-            // 索引信息
+            // 索引信息：getIndexInfo 第4参数 unique=false 表示返回所有索引，第5参数 approximate=false 要求精确结果
             List<Map<String, String>> indexes = new ArrayList<>();
             try (ResultSet rs = meta.getIndexInfo(catalog, null, tableName, false, false)) {
                 while (rs.next()) {
                     String indexName = rs.getString("INDEX_NAME");
-                    if (indexName == null) continue;
+                    if (indexName == null) continue; // 统计信息行无索引名，跳过
                     Map<String, String> idx = new LinkedHashMap<>();
                     idx.put("indexName", indexName);
                     idx.put("column", rs.getString("COLUMN_NAME"));
@@ -168,6 +173,11 @@ public class McpSqlExecutorService {
         }
     }
 
+    /**
+     * 将 ResultSet 转为 List<Map> 结构，方便 JSON 序列化返回给 Agent。
+     * 使用 getColumnLabel 而非 getColumnName，以支持 SQL 中的列别名（AS）。
+     * 使用 LinkedHashMap 保持列的原始顺序。
+     */
     private List<Map<String, Object>> resultSetToList(ResultSet rs) throws SQLException {
         ResultSetMetaData meta = rs.getMetaData();
         int columnCount = meta.getColumnCount();

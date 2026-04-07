@@ -1,7 +1,7 @@
 package com.ye.decision.controller;
 
 import com.ye.decision.config.ThreadPoolConfig;
-import com.ye.decision.dto.ReActEvent;
+import com.ye.decision.domain.dto.ReActEvent;
 import com.ye.decision.mapper.ChatMessageMapper;
 import com.ye.decision.service.AgentService;
 import org.junit.jupiter.api.Test;

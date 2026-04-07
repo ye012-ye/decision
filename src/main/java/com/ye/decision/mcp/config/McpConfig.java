@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
  * @author ye
  */
 @Configuration
+// matchIfMissing=true：配置中不写 decision.mcp.enabled 时默认启用，写 false 才关闭
 @ConditionalOnProperty(name = "decision.mcp.enabled", havingValue = "true", matchIfMissing = true)
 public class McpConfig {
 
@@ -51,6 +52,8 @@ public class McpConfig {
         return new QueryDataTool(securityService, executorService, auditService, mcpProperties, objectMapper);
     }
 
+    // 写操作工具默认不装配，需在配置中显式开启 decision.mcp.write-enabled=true
+    // 未装配时 AiConfig 中的 @Autowired(required=false) 会得到 null，Agent 无法调用写操作
     @Bean
     @ConditionalOnProperty(name = "decision.mcp.write-enabled", havingValue = "true")
     public ExecuteSqlTool executeSqlTool(McpSqlSecurityService securityService,

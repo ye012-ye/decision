@@ -1,6 +1,6 @@
 package com.ye.decision.controller;
 
-import com.ye.decision.dto.ChatRequest;
+import com.ye.decision.domain.dto.ChatRequest;
 import com.ye.decision.service.AgentService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;

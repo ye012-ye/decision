@@ -1,9 +1,9 @@
 package com.ye.decision.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.ApiCallReq;
-import com.ye.decision.dto.QueryMysqlReq;
-import com.ye.decision.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.ApiCallReq;
+import com.ye.decision.domain.dto.QueryMysqlReq;
+import com.ye.decision.domain.dto.QueryRedisReq;
 import com.ye.decision.mcp.domain.dto.DescribeTableReq;
 import com.ye.decision.mcp.domain.dto.ExecuteSqlReq;
 import com.ye.decision.mcp.domain.dto.ListTablesReq;
@@ -53,6 +53,9 @@ public class AiConfig {
             .build();
     }
 
+    // MCP 工具通过 required=false 注入：
+    // - 当 decision.mcp.enabled=false 时，McpConfig 不生效，这些字段为 null
+    // - ExecuteSqlTool 额外受 write-enabled 控制，关闭写操作时也为 null
     @Autowired(required = false)
     private ListTablesTool listTablesTool;
 

@@ -101,18 +101,19 @@ decision:
       collection-name: knowledge_vectors
       dense-dimension: 1024                              # 须与 embedding model 输出维度一致
       rrf-k: 60                                          # RRF 融合参数，值越大长尾排名权重越高
+  # MCP 数据库工具模块：为 Agent 提供安全受控的数据库访问
   mcp:
-    enabled: true
-    write-enabled: false                             # 设为 true 启用 INSERT/UPDATE/DELETE
-    query-timeout-seconds: 30
-    max-row-limit: 1000
-    default-row-limit: 100
-    max-sql-length: 4096
+    enabled: true                                    # 模块总开关
+    write-enabled: false                             # 写操作开关（INSERT/UPDATE/DELETE）
+    query-timeout-seconds: 30                        # SQL 查询超时（秒）
+    max-row-limit: 1000                              # 单次查询最大返回行数
+    default-row-limit: 100                           # 未指定 limit 时的默认行数
+    max-sql-length: 4096                             # SQL 最大长度（字符）
     table-whitelist: []                              # 静态白名单，也可通过 /api/mcp/whitelist 动态管理
-    table-blacklist:
+    table-blacklist:                                 # 黑名单，始终禁止访问
       - mcp_audit_log
       - mcp_table_whitelist
-    forbidden-keywords:
+    forbidden-keywords:                              # 禁止关键词，含这些词的 SQL 直接拒绝
       - TRUNCATE
       - DROP
       - ALTER

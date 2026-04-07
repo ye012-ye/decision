@@ -1,6 +1,6 @@
 package com.ye.decision.service;
 
-import com.ye.decision.dto.ReActEvent;
+import com.ye.decision.domain.dto.ReActEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;

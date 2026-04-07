@@ -1,7 +1,7 @@
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.ApiCallReq;
+import com.ye.decision.domain.dto.ApiCallReq;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 

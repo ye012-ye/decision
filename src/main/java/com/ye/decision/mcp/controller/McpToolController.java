@@ -27,6 +27,9 @@ public class McpToolController {
         this.auditService = auditService;
     }
 
+    /**
+     * 获取所有 MCP 工具列表。
+     */
     @GetMapping("/tools")
     public Result<List<McpToolVO>> listTools() {
         List<McpToolVO> mcpTools = toolCallbacks.stream()
@@ -40,6 +43,9 @@ public class McpToolController {
         return Result.ok(mcpTools);
     }
 
+    /**
+     * 查询审计日志。
+     */
     @GetMapping("/audit-logs")
     public Result<IPage<McpAuditLogVO>> queryAuditLogs(
         @RequestParam(defaultValue = "1") int page,

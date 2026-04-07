@@ -51,13 +51,13 @@ public class QueryDataTool implements Function<QueryDataReq, String> {
         String sql = req.sql();
 
         try {
-            // 安全校验（只读模式）
+            // 1. 安全校验：readOnly=true 只允许 SELECT，拒绝写操作和危险 SQL
             securityService.validateSql(sql, true);
 
-            // 强制行数限制
+            // 2. 包装子查询强制 LIMIT，防止全表扫描返回过多数据
             String limitedSql = securityService.enforceRowLimit(sql, req.maxRows());
 
-            // 执行���询
+            // 3. 执行查询：JDBC 层面也设置了 maxRows 和 timeout 作为双重保护
             int effectiveLimit = req.maxRows() > 0
                 ? Math.min(req.maxRows(), mcpProperties.getMaxRowLimit())
                 : mcpProperties.getDefaultRowLimit();
@@ -76,6 +76,8 @@ public class QueryDataTool implements Function<QueryDataReq, String> {
             return objectMapper.writeValueAsString(result);
 
         } catch (Exception e) {
+            // 无论是安全校验拒绝还是执行异常，都记录审计日志（状态=ERROR）
+            // 返回 JSON 错误而非抛异常，因为 Agent 需要可读的错误信息来决定下一步
             long elapsed = System.currentTimeMillis() - start;
             auditService.log("mcpQueryData", sql, SqlOperationType.SELECT,
                 AuditStatus.ERROR, e.getMessage(), 0, elapsed);

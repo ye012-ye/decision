@@ -2,7 +2,7 @@ package com.ye.decision.mq;
 
 import com.ye.decision.config.RabbitMqConfig;
 import com.ye.decision.config.RedissonChatMemoryRepository;
-import com.ye.decision.entity.ChatMessageEntity;
+import com.ye.decision.domain.entity.ChatMessageEntity;
 import com.ye.decision.mapper.ChatMessageMapper;
 import org.redisson.api.RedissonClient;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;

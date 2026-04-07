@@ -24,17 +24,34 @@ public class McpWhitelistController {
         this.whitelistService = whitelistService;
     }
 
+    /**
+     * 列出所有表白名单。
+     *
+     * @return 表白名单列表
+     */
     @GetMapping
     public Result<List<McpWhitelistEntity>> list() {
         return Result.ok(whitelistService.listAll());
     }
 
+    /**
+     * 添加表白名单。
+     *
+     * @param req 表白名单请求
+     * @return 无
+     */
     @PostMapping
     public Result<Void> add(@Valid @RequestBody TableWhitelistReq req) {
         whitelistService.addTable(req);
         return Result.ok(null);
     }
 
+    /**
+     * 删除表白名单。
+     *
+     * @param tableName 表名
+     * @return 无
+     */
     @DeleteMapping("/{tableName}")
     public Result<Void> remove(@PathVariable String tableName) {
         whitelistService.removeTable(tableName);

@@ -1,7 +1,7 @@
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.QueryRedisReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RBucket;

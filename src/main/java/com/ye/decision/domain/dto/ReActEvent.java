@@ -1,4 +1,4 @@
-package com.ye.decision.dto;
+package com.ye.decision.domain.dto;
 
 /**
  * ReAct 推理链路中的单个事件，用于 SSE 推送给前端。

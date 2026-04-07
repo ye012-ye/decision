@@ -1,7 +1,7 @@
 package com.ye.decision.service;
 
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
-import com.ye.decision.dto.ReActEvent;
+import com.ye.decision.domain.dto.ReActEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -44,7 +44,11 @@ public class AgentService {
 
     /**
      * 专用工具的关键词映射，用于动态工具选择。
-     * Redis 和 MySQL 作为通用工具始终包含，专用工具按关键词匹配动态加入。
+     * <p>
+     * 工作原理：用户消息中出现匹配关键词时，对应工具才会加入本轮 Prompt。
+     * 这样做的目的是减少 LLM 的工具选择空间和 token 消耗——
+     * 不相关的工具不传给模型，模型就不会误选。
+     * Redis 和 MySQL 作为通用工具在 selectTools() 中始终包含，不在此映射中。
      */
     private static final Map<String, List<String>> TOOL_KEYWORDS = Map.of(
         "callExternalApiTool", List.of("天气", "weather", "物流", "logistics", "快递", "汇率", "exchange"),

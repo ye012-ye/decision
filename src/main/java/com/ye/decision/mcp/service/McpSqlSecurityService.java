@@ -81,11 +81,17 @@ public class McpSqlSecurityService {
      * 为 SELECT 语句强制行数限制。
      * 在原 SQL 外层包一层 LIMIT，确保不超过最大行数。
      */
+    /**
+     * 为 SELECT 语句强制行数限制。
+     * <p>
+     * 不直接修改原 SQL 的 LIMIT（可能已有或写法各异），
+     * 而是将原 SQL 包成子查询再加外层 LIMIT，保证任何写法都能被限制。
+     * 例：SELECT * FROM orders → SELECT * FROM (SELECT * FROM orders) _mcp_limited LIMIT 100
+     */
     public String enforceRowLimit(String sql, int requestedLimit) {
         int effectiveLimit = requestedLimit > 0
             ? Math.min(requestedLimit, mcpProperties.getMaxRowLimit())
             : mcpProperties.getDefaultRowLimit();
-        // 包装为子查询 + LIMIT，兼容各种 SQL 写法
         return "SELECT * FROM (" + sql + ") _mcp_limited LIMIT " + effectiveLimit;
     }
 
@@ -108,6 +114,10 @@ public class McpSqlSecurityService {
         }
     }
 
+    /**
+     * 防止 "SELECT 1; DROP TABLE users" 这类多语句注入攻击。
+     * parseStatements 会按分号拆分，如果得到多条则拒绝。
+     */
     private void checkMultiStatement(String sql) {
         try {
             Statements stmts = CCJSqlParserUtil.parseStatements(sql);
@@ -117,7 +127,7 @@ public class McpSqlSecurityService {
         } catch (McpException e) {
             throw e;
         } catch (JSQLParserException e) {
-            // 已在 parseSql 中校验过，此处忽略
+            // parseSql() 已经校验过语法，到这里说明单语句解析通过但多语句解析失败，可忽略
         }
     }
 
@@ -131,6 +141,11 @@ public class McpSqlSecurityService {
             "不支持的语句类型: " + statement.getClass().getSimpleName());
     }
 
+    /**
+     * 扫描 SQL 中是否包含危险关键词（如 TRUNCATE、DROP、SLEEP 等）。
+     * 注意：这是字符串级别的粗粒度检查，可能在字符串字面值中误判，
+     * 但作为纵深防御的一层，配合 JSqlParser 的 AST 类型检查一起使用是合理的。
+     */
     private void checkForbiddenKeywords(String sql) {
         String upper = sql.toUpperCase(Locale.ROOT);
         for (String keyword : mcpProperties.getForbiddenKeywords()) {
@@ -140,6 +155,11 @@ public class McpSqlSecurityService {
         }
     }
 
+    /**
+     * 从 AST 中提取 SQL 涉及的所有表名（包括 JOIN、子查询中的表），
+     * 逐一校验黑名单和白名单。
+     * TablesNamesFinder 是 JSqlParser 提供的访问者，能递归遍历整个语法树。
+     */
     private void checkTableAccess(Statement statement) {
         TablesNamesFinder finder = new TablesNamesFinder();
         List<String> tables = finder.getTableList(statement);
@@ -151,6 +171,7 @@ public class McpSqlSecurityService {
         Set<String> whitelist = whitelistService.getEffectiveWhitelist();
 
         for (String table : tables) {
+            // 去掉反引号和双引号，统一小写比较
             String lower = table.toLowerCase(Locale.ROOT)
                 .replace("`", "")
                 .replace("\"", "");

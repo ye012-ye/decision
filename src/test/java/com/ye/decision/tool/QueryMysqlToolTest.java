@@ -1,6 +1,6 @@
 package com.ye.decision.tool;
 
-import com.ye.decision.dto.QueryMysqlReq;
+import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.feign.DownstreamClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

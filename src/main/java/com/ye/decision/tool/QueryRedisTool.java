@@ -1,7 +1,7 @@
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.QueryRedisReq;
 import org.redisson.api.RList;
 import org.redisson.api.RMap;
 import org.redisson.api.RScoredSortedSet;

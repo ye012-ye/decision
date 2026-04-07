@@ -1,7 +1,7 @@
 package com.ye.decision.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.ye.decision.entity.ChatMessageEntity;
+import com.ye.decision.domain.entity.ChatMessageEntity;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

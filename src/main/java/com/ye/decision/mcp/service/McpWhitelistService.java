@@ -34,7 +34,11 @@ public class McpWhitelistService {
     private final McpWhitelistMapper whitelistMapper;
     private final McpProperties mcpProperties;
 
-    /** 内存缓存（DB 白名单部分），写少读多场景 */
+    /**
+     * 内存缓存（仅 DB 动态白名单部分）。
+     * volatile 保证多线程可见性；ReentrantReadWriteLock 保证读写安全。
+     * 写少读多场景下，读锁不互斥，写锁排他，性能优于 synchronized。
+     */
     private volatile Set<String> cachedDbWhitelist;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -84,13 +88,16 @@ public class McpWhitelistService {
             return false;
         }
         Set<String> whitelist = getEffectiveWhitelist();
-        // 白名单为空时，允许所有非黑名单表
+        // 白名单为空 → 开放模式：只要不在黑名单就放行
+        // 白名单非空 → 严格模式：表必须在白名单内才允许
         return whitelist.isEmpty() || whitelist.contains(lower);
     }
 
+    /**
+     * 添加表到白名单。幂等操作：如果表已存在则重新启用并更新描述。
+     */
     public void addTable(TableWhitelistReq req) {
         String lower = req.tableName().toLowerCase(Locale.ROOT);
-        // 检查是否已存在
         Long count = whitelistMapper.selectCount(
             new LambdaQueryWrapper<McpWhitelistEntity>()
                 .eq(McpWhitelistEntity::getTableName, lower)
@@ -115,6 +122,9 @@ public class McpWhitelistService {
         log.info("Table '{}' added to MCP whitelist", lower);
     }
 
+    /**
+     * 从白名单移除表。软删除：将 status 置为 0，不物理删除记录。
+     */
     public void removeTable(String tableName) {
         String lower = tableName.toLowerCase(Locale.ROOT);
         McpWhitelistEntity entity = whitelistMapper.selectOne(
@@ -134,6 +144,11 @@ public class McpWhitelistService {
         return whitelistMapper.selectList(null);
     }
 
+    /**
+     * 从 DB 重新加载活跃白名单到内存缓存。
+     * 加写锁保证刷新期间读操作不会拿到半更新状态。
+     * 如果 DB 查询失败，保留上一次缓存值（降级策略），不让异常扩散。
+     */
     private void refreshCache() {
         lock.writeLock().lock();
         try {

@@ -1,4 +1,4 @@
-package com.ye.decision.dto;
+package com.ye.decision.domain.dto;
 
 /**
  * @author Administrator

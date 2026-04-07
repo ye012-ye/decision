@@ -576,13 +576,12 @@ git commit -m "feat: add DownstreamClient interface, Feign clients, @EnableFeign
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.QueryRedisReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.*;
 
 import java.util.Map;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -647,7 +646,7 @@ class QueryRedisToolTest {
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.QueryRedisReq;
 import org.springframework.data.redis.core.*;
 
 import java.util.*;
@@ -668,10 +667,10 @@ public class QueryRedisTool implements Function<QueryRedisReq, String> {
         try {
             return switch (req.dataType()) {
                 case "string" -> queryString(req.keyPattern());
-                case "hash"   -> queryHash(req.keyPattern());
-                case "zset"   -> queryZset(req.keyPattern());
-                case "list"   -> queryList(req.keyPattern());
-                default       -> errorJson("unsupported_type", "不支持的 dataType: " + req.dataType());
+                case "hash" -> queryHash(req.keyPattern());
+                case "zset" -> queryZset(req.keyPattern());
+                case "list" -> queryList(req.keyPattern());
+                default -> errorJson("unsupported_type", "不支持的 dataType: " + req.dataType());
             };
         } catch (Exception e) {
             return errorJson("redis_error", e.getMessage());
@@ -730,7 +729,7 @@ public class QueryRedisTool implements Function<QueryRedisReq, String> {
 // src/test/java/com/ye/decision/tool/QueryMysqlToolTest.java
 package com.ye.decision.tool;
 
-import com.ye.decision.dto.QueryMysqlReq;
+import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.feign.DownstreamClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -750,8 +749,8 @@ class QueryMysqlToolTest {
     void setUp() {
         // Map key 必须与 QueryMysqlReq.target 的合法值一致
         tool = new QueryMysqlTool(Map.of(
-            "order-service", orderClient,
-            "user-service", userClient
+                "order-service", orderClient,
+                "user-service", userClient
         ));
     }
 
@@ -790,7 +789,7 @@ class QueryMysqlToolTest {
 // src/main/java/com/ye/decision/tool/QueryMysqlTool.java
 package com.ye.decision.tool;
 
-import com.ye.decision.dto.QueryMysqlReq;
+import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.feign.DownstreamClient;
 
 import java.util.Map;
@@ -837,7 +836,7 @@ public class QueryMysqlTool implements Function<QueryMysqlReq, String> {
 // src/test/java/com/ye/decision/tool/CallExternalApiToolTest.java
 package com.ye.decision.tool;
 
-import com.ye.decision.dto.ApiCallReq;
+import com.ye.decision.domain.dto.ApiCallReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -858,18 +857,18 @@ class CallExternalApiToolTest {
     @BeforeEach
     void setUp() {
         tool = new CallExternalApiTool(
-            restTemplate,
-            "http://weather.test/current",
-            "http://logistics.test/track",
-            "http://exchange.test/rate"
+                restTemplate,
+                "http://weather.test/current",
+                "http://logistics.test/track",
+                "http://exchange.test/rate"
         );
     }
 
     @Test
     void weather_callsCorrectUrl() {
         server.expect(requestTo("http://weather.test/current?city=%E5%8C%97%E4%BA%AC"))
-            .andExpect(method(HttpMethod.GET))
-            .andRespond(withSuccess("{\"temp\":\"20°C\"}", MediaType.APPLICATION_JSON));
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"temp\":\"20°C\"}", MediaType.APPLICATION_JSON));
 
         String result = tool.apply(new ApiCallReq("weather", "{\"city\":\"北京\"}"));
         assertThat(result).contains("20°C");
@@ -885,7 +884,7 @@ class CallExternalApiToolTest {
     @Test
     void httpError_returnsErrorJson() {
         server.expect(requestTo("http://logistics.test/track?trackingNo=SF123"))
-            .andRespond(withServerError());
+                .andRespond(withServerError());
         String result = tool.apply(new ApiCallReq("logistics", "{\"trackingNo\":\"SF123\"}"));
         assertThat(result).contains("\"error\"");
     }
@@ -905,7 +904,7 @@ class CallExternalApiToolTest {
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.dto.ApiCallReq;
+import com.ye.decision.domain.dto.ApiCallReq;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -921,9 +920,9 @@ public class CallExternalApiTool implements Function<ApiCallReq, String> {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CallExternalApiTool(RestTemplate restTemplate,
-                                String weatherUrl,
-                                String logisticsUrl,
-                                String exchangeRateUrl) {
+                               String weatherUrl,
+                               String logisticsUrl,
+                               String exchangeRateUrl) {
         this.restTemplate = restTemplate;
         this.weatherUrl = weatherUrl;
         this.logisticsUrl = logisticsUrl;
@@ -936,8 +935,8 @@ public class CallExternalApiTool implements Function<ApiCallReq, String> {
             @SuppressWarnings("unchecked")
             Map<String, Object> params = objectMapper.readValue(req.params(), Map.class);
             return switch (req.service()) {
-                case "weather"       -> get(weatherUrl, params);
-                case "logistics"     -> get(logisticsUrl, params);
+                case "weather" -> get(weatherUrl, params);
+                case "logistics" -> get(logisticsUrl, params);
                 case "exchange-rate" -> get(exchangeRateUrl, params);
                 default -> errorJson("unknown_service", "不支持的外部服务: " + req.service());
             };
@@ -1360,7 +1359,7 @@ class ChatControllerTest {
 // src/main/java/com/ye/decision/controller/ChatController.java
 package com.ye.decision.controller;
 
-import com.ye.decision.dto.ChatRequest;
+import com.ye.decision.domain.dto.ChatRequest;
 import com.ye.decision.service.AgentService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -1390,28 +1389,32 @@ public class ChatController {
         executor.execute(() -> {
             try {
                 agentService.chat(request.sessionId(), request.message())
-                    .doOnNext(token -> {
-                        try { emitter.send(token); } catch (Exception e) { emitter.completeWithError(e); }
-                    })
-                    .doOnComplete(() -> {
-                        try {
-                            emitter.send("[DONE]");
-                            emitter.complete();
-                        } catch (Exception e) {
-                            emitter.completeWithError(e);
-                        }
-                    })
-                    .doOnError(e -> {
-                        try {
-                            emitter.send(SseEmitter.event()
-                                .name("error")
-                                .data("{\"code\":500,\"msg\":\"" + e.getMessage() + "\",\"data\":null}"));
-                            emitter.complete();
-                        } catch (Exception ex) {
-                            emitter.completeWithError(ex);
-                        }
-                    })
-                    .blockLast(); // 在虚拟线程中阻塞等待完成，不占用平台线程
+                        .doOnNext(token -> {
+                            try {
+                                emitter.send(token);
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        })
+                        .doOnComplete(() -> {
+                            try {
+                                emitter.send("[DONE]");
+                                emitter.complete();
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        })
+                        .doOnError(e -> {
+                            try {
+                                emitter.send(SseEmitter.event()
+                                        .name("error")
+                                        .data("{\"code\":500,\"msg\":\"" + e.getMessage() + "\",\"data\":null}"));
+                                emitter.complete();
+                            } catch (Exception ex) {
+                                emitter.completeWithError(ex);
+                            }
+                        })
+                        .blockLast(); // 在虚拟线程中阻塞等待完成，不占用平台线程
             } catch (Exception e) {
                 emitter.completeWithError(e);
             }

@@ -1,4 +1,4 @@
-package com.ye.decision.entity;
+package com.ye.decision.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 

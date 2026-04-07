@@ -43,6 +43,8 @@ public class ListTablesTool implements Function<ListTablesReq, String> {
             Set<String> blacklist = whitelistService.getBlacklist();
             Set<String> whitelist = whitelistService.getEffectiveWhitelist();
 
+            // 双重过滤：先排除黑名单，再检查白名单（白名单为空时不过滤）
+            // 这样 Agent 只能看到被允许的表，不会暴露审计表等敏感表名
             List<Map<String, String>> filtered = allTables.stream()
                 .filter(t -> {
                     String name = t.get("tableName").toLowerCase();
