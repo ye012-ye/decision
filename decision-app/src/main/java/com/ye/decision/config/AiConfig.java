@@ -4,14 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ye.decision.domain.dto.ApiCallReq;
 import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.domain.dto.QueryRedisReq;
-import com.ye.decision.mcp.domain.dto.DescribeTableReq;
-import com.ye.decision.mcp.domain.dto.ExecuteSqlReq;
-import com.ye.decision.mcp.domain.dto.ListTablesReq;
-import com.ye.decision.mcp.domain.dto.QueryDataReq;
-import com.ye.decision.mcp.tool.DescribeTableTool;
-import com.ye.decision.mcp.tool.ExecuteSqlTool;
-import com.ye.decision.mcp.tool.ListTablesTool;
-import com.ye.decision.mcp.tool.QueryDataTool;
 import com.ye.decision.mq.ChatMemoryPublisher;
 import com.ye.decision.rag.domain.dto.KnowledgeSearchReq;
 import com.ye.decision.tool.KnowledgeSearchTool;
@@ -22,6 +14,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +25,7 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -53,20 +47,9 @@ public class AiConfig {
             .build();
     }
 
-    // MCP 工具通过 required=false 注入：
-    // - 当 decision.mcp.enabled=false 时，McpConfig 不生效，这些字段为 null
-    // - ExecuteSqlTool 额外受 write-enabled 控制，关闭写操作时也为 null
+    // MCP Client 自动注入的 ToolCallbackProvider（来自 MCP Server 的工具）
     @Autowired(required = false)
-    private ListTablesTool listTablesTool;
-
-    @Autowired(required = false)
-    private DescribeTableTool describeTableTool;
-
-    @Autowired(required = false)
-    private QueryDataTool queryDataTool;
-
-    @Autowired(required = false)
-    private ExecuteSqlTool executeSqlTool;
+    private ToolCallbackProvider mcpToolCallbackProvider;
 
     @Bean
     public List<ToolCallback> toolCallbacks(QueryMysqlTool queryMysqlTool,
@@ -92,30 +75,9 @@ public class AiConfig {
                 .build()
         ));
 
-        // MCP 数据库操作工具（条件注册）
-        if (listTablesTool != null) {
-            callbacks.add(FunctionToolCallback.builder("mcpListTables", listTablesTool)
-                .description("列出数据库中可查询的��。返回表名和注释。用于了解数据库结构。")
-                .inputType(ListTablesReq.class)
-                .build());
-        }
-        if (describeTableTool != null) {
-            callbacks.add(FunctionToolCallback.builder("mcpDescribeTable", describeTableTool)
-                .description("查看指定表的结构，包括列名、数据类型、索引信息。用于了解表结构后编写SQL。输入参数：tableName（表名）。")
-                .inputType(DescribeTableReq.class)
-                .build());
-        }
-        if (queryDataTool != null) {
-            callbacks.add(FunctionToolCallback.builder("mcpQueryData", queryDataTool)
-                .description("在本地数据库上执行只读SELECT查询。支持复杂查询、JOIN、聚合。返回查询结果JSON。需先用mcpListTables和mcpDescribeTable了解表结构。输入参数：sql（SQL语句）、maxRows（最大行数，可选）。")
-                .inputType(QueryDataReq.class)
-                .build());
-        }
-        if (executeSqlTool != null) {
-            callbacks.add(FunctionToolCallback.builder("mcpExecuteSql", executeSqlTool)
-                .description("在本地数据库执行INSERT/UPDATE/DELETE操作。仅在写操作启用时可用。需谨慎使用。输入参数：sql（SQL语句）。")
-                .inputType(ExecuteSqlReq.class)
-                .build());
+        // 添加 MCP Client 自动发现的工具（来自 decision-mcp-server）
+        if (mcpToolCallbackProvider != null) {
+            callbacks.addAll(Arrays.asList(mcpToolCallbackProvider.getToolCallbacks()));
         }
 
         return callbacks;

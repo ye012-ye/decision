@@ -1,6 +1,5 @@
 package com.ye.decision.common;
 
-import com.ye.decision.mcp.exception.McpException;
 import com.ye.decision.rag.exception.RagException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,13 +28,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RagException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleRagException(RagException e) {
-        return Result.error(e.getCode(), e.getMessage());
-    }
-
-    /** MCP 业务异常 */
-    @ExceptionHandler(McpException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<Void> handleMcpException(McpException e) {
         return Result.error(e.getCode(), e.getMessage());
     }
 

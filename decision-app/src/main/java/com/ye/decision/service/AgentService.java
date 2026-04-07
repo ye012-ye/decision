@@ -122,7 +122,7 @@ public class AgentService {
         messages.add(new SystemMessage(systemPrompt));
         messages.addAll(history);
         messages.add(new UserMessage(message));
-
+        
         // 2. 动态选择工具并构建 ChatOptions
         List<ToolCallback> selectedTools = selectTools(message);
         DashScopeChatOptions options = DashScopeChatOptions.builder()
