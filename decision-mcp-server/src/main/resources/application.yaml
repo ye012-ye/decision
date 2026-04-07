@@ -1,0 +1,58 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: decision-mcp-server
+
+  ai:
+    mcp:
+      server:
+        name: decision-mcp-server
+        version: 1.0.0
+
+  datasource:
+    url: jdbc:mysql://192.168.83.128:3306/decision?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: "1234"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 10
+      connection-timeout: 30000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+mcp:
+  enabled: true
+  write-enabled: false
+  query-timeout-seconds: 30
+  max-row-limit: 1000
+  default-row-limit: 100
+  max-sql-length: 4096
+  table-whitelist: []
+  table-blacklist:
+    - mcp_audit_log
+    - mcp_table_whitelist
+  forbidden-keywords:
+    - TRUNCATE
+    - DROP
+    - ALTER
+    - CREATE
+    - GRANT
+    - REVOKE
+    - INTO OUTFILE
+    - LOAD_FILE
+    - SLEEP
+    - BENCHMARK
+
+logging:
+  level:
+    com.ye.mcp: DEBUG
+    org.springframework.ai: INFO
