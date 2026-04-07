@@ -54,7 +54,9 @@ public class DatabaseTools {
             List<Map<String, String>> filtered = allTables.stream()
                 .filter(t -> {
                     String name = t.get("tableName").toLowerCase();
-                    if (blacklist.contains(name)) return false;
+                    if (blacklist.contains(name)) {
+                        return false;
+                    }
                     return whitelist.isEmpty() || whitelist.contains(name);
                 })
                 .toList();

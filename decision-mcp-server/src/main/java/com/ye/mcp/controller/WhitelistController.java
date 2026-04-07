@@ -9,6 +9,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * @author ye
+ *
+ * 白名单管理
+ */
 @RestController
 @RequestMapping("/api/mcp/whitelist")
 public class WhitelistController {

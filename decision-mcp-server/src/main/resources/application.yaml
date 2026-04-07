@@ -1,3 +1,4 @@
+# 服务器配置
 server:
   port: 8081
 
@@ -5,12 +6,14 @@ spring:
   application:
     name: decision-mcp-server
 
+  # Spring AI MCP 服务器配置
   ai:
     mcp:
       server:
         name: decision-mcp-server
         version: 1.0.0
 
+  # 数据库配置
   datasource:
     url: jdbc:mysql://192.168.83.128:3306/decision?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
@@ -21,6 +24,7 @@ spring:
       maximum-pool-size: 10
       connection-timeout: 30000
 
+# MyBatis-Plus 配置
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -29,29 +33,31 @@ mybatis-plus:
     db-config:
       id-type: auto
 
+# MCP 服务自定义配置
 mcp:
-  enabled: true
-  write-enabled: false
-  query-timeout-seconds: 30
-  max-row-limit: 1000
-  default-row-limit: 100
-  max-sql-length: 4096
-  table-whitelist: []
-  table-blacklist:
+  enabled: true                          # 是否启用 MCP 服务
+  write-enabled: false                   # 是否允许写操作（增删改）
+  query-timeout-seconds: 30              # SQL 查询超时时间（秒）
+  max-row-limit: 1000                    # 最大返回行数限制
+  default-row-limit: 100                 # 默认返回行数限制
+  max-sql-length: 4096                   # 最大 SQL 语句长度
+  table-whitelist: []                    # 表白名单（为空表示不限制）
+  table-blacklist:                       # 表黑名单（禁止访问的表）
     - mcp_audit_log
     - mcp_table_whitelist
-  forbidden-keywords:
-    - TRUNCATE
-    - DROP
-    - ALTER
-    - CREATE
-    - GRANT
-    - REVOKE
-    - INTO OUTFILE
-    - LOAD_FILE
-    - SLEEP
-    - BENCHMARK
+  forbidden-keywords:                    # 禁止的 SQL 关键字（防止危险操作）
+    - TRUNCATE                           # 清空表
+    - DROP                               # 删除表/数据库
+    - ALTER                              # 修改表结构
+    - CREATE                             # 创建表/数据库
+    - GRANT                              # 授权
+    - REVOKE                             # 撤销权限
+    - INTO OUTFILE                       # 导出文件
+    - LOAD_FILE                          # 加载文件
+    - SLEEP                              # 延迟函数（防止 SQL 注入攻击）
+    - BENCHMARK                          # 性能测试函数（防止 SQL 注入攻击）
 
+# 日志配置
 logging:
   level:
     com.ye.mcp: DEBUG

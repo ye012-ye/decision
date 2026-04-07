@@ -3,6 +3,9 @@ package com.ye.mcp.domain.dto;
 import com.ye.mcp.domain.entity.AuditLogEntity;
 import java.time.LocalDateTime;
 
+/**
+ * @author ye
+ */
 public record AuditLogVO(
     Long id, String toolName, String sqlText, String operationType,
     String status, String errorMessage, Integer rowsAffected,

@@ -6,6 +6,11 @@ import com.ye.mcp.domain.dto.AuditLogVO;
 import com.ye.mcp.service.AuditService;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * @author ye
+ *
+ * 审计
+ */
 @RestController
 @RequestMapping("/api/mcp")
 public class AuditController {
@@ -16,6 +21,9 @@ public class AuditController {
         this.auditService = auditService;
     }
 
+    /**
+     * 查询审计日志
+     */
     @GetMapping("/audit-logs")
     public Result<IPage<AuditLogVO>> queryAuditLogs(
         @RequestParam(defaultValue = "1") int page,

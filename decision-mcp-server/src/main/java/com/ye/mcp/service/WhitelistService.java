@@ -159,6 +159,7 @@ public class WhitelistService {
             cachedDbWhitelist = active.stream()
                 .map(e -> e.getTableName().toLowerCase(Locale.ROOT))
                 .collect(Collectors.toSet());
+            log.debug("MCP whitelist cache: {}", cachedDbWhitelist);
         } catch (Exception e) {
             log.warn("Failed to refresh MCP whitelist cache, using previous", e);
         } finally {

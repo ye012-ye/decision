@@ -154,7 +154,9 @@ public class SqlExecutorService {
             try (ResultSet rs = meta.getIndexInfo(catalog, null, tableName, false, false)) {
                 while (rs.next()) {
                     String indexName = rs.getString("INDEX_NAME");
-                    if (indexName == null) continue; // 统计信息行无索引名，跳过
+                    if (indexName == null) {
+                        continue; // 统计信息行无索引名，跳过
+                    }
                     Map<String, String> idx = new LinkedHashMap<>();
                     idx.put("indexName", indexName);
                     idx.put("column", rs.getString("COLUMN_NAME"));

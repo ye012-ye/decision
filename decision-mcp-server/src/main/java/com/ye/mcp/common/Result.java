@@ -1,5 +1,8 @@
 package com.ye.mcp.common;
 
+/**
+ * @author ye
+ */
 public record Result<T>(int code, String msg, T data) {
 
     public static <T> Result<T> ok(T data) {
