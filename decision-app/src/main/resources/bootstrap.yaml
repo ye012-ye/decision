@@ -83,6 +83,15 @@ spring:
       max-file-size: 50MB
       max-request-size: 50MB
 
+  # Mail
+  mail:
+    host: ${MAIL_HOST:smtp.example.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:noreply@example.com}
+    password: ${MAIL_PASSWORD:changeme}
+    properties:
+      mail.smtp.ssl.enable: true
+
 # MyBatis-Plus
 mybatis-plus:
   configuration:
@@ -112,6 +121,9 @@ decision:
     weather-url: http://api.weather.example.com/current
     logistics-url: http://api.logistics.example.com/track
     exchange-rate-url: http://api.exchange.example.com/rate
+  notification:
+    enabled: ${NOTIFICATION_ENABLED:true}
+    default-channel: EMAIL
 
 # 日志
 logging:
