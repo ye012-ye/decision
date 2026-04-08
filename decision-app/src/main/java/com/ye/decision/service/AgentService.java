@@ -56,7 +56,8 @@ public class AgentService {
         "mcpListTables", List.of("数据库", "有哪些表", "列出表", "table", "schema", "所有表"),
         "mcpDescribeTable", List.of("表结构", "字段", "列", "column", "describe", "索引"),
         "mcpQueryData", List.of("查询", "sql", "select", "统计", "报表", "数据分析", "聚合"),
-        "mcpExecuteSql", List.of("插入", "更新", "删除", "insert", "update", "delete", "修改数据")
+        "mcpExecuteSql", List.of("插入", "更新", "删除", "insert", "update", "delete", "修改数据"),
+        "workOrderTool", List.of("工单", "投诉", "报修", "申请", "反馈", "fault", "ticket", "complaint")
     );
 
     public AgentService(ChatModel chatModel,

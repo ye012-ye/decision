@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ye.decision.domain.dto.ApiCallReq;
 import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.domain.dto.QueryRedisReq;
+import com.ye.decision.domain.dto.WorkOrderReq;
+import com.ye.decision.tool.WorkOrderTool;
 import com.ye.decision.mq.ChatMemoryPublisher;
 import com.ye.decision.rag.domain.dto.KnowledgeSearchReq;
 import com.ye.decision.tool.KnowledgeSearchTool;
@@ -55,7 +57,8 @@ public class AiConfig {
     public List<ToolCallback> toolCallbacks(QueryMysqlTool queryMysqlTool,
                                             QueryRedisTool queryRedisTool,
                                             CallExternalApiTool callExternalApiTool,
-                                            KnowledgeSearchTool knowledgeSearchTool) {
+                                            KnowledgeSearchTool knowledgeSearchTool,
+                                            WorkOrderTool workOrderTool) {
         List<ToolCallback> callbacks = new ArrayList<>(List.of(
             FunctionToolCallback.builder("queryMysqlTool", queryMysqlTool)
                 .description("查询结构化业务数据，如订单、用户信息、交易记录、统计报表。适用于精确条件查询场景。")
@@ -72,6 +75,10 @@ public class AiConfig {
             FunctionToolCallback.builder("knowledgeSearchTool", knowledgeSearchTool)
                 .description("在企业知识库中搜索相关文档。适用于查询产品文档、操作手册、FAQ、政策规范、技术文档等非结构化知识。需要指定知识库编码(kbCode)和查询内容(query)。")
                 .inputType(KnowledgeSearchReq.class)
+                .build()
+            ,FunctionToolCallback.builder("workOrderTool", workOrderTool)
+                .description("管理客服工单：创建(create)、查询(query)、更新状态(update)、关闭(close)。创建时需提供 type/title/description/customerId，会自动指派处理人并发送通知。")
+                .inputType(WorkOrderReq.class)
                 .build()
         ));
 

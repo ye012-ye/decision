@@ -7,6 +7,8 @@ import com.ye.decision.feign.UserServiceClient;
 import com.ye.decision.tool.CallExternalApiTool;
 import com.ye.decision.tool.QueryMysqlTool;
 import com.ye.decision.tool.QueryRedisTool;
+import com.ye.decision.tool.WorkOrderTool;
+import com.ye.decision.service.WorkOrderService;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -54,5 +56,11 @@ public class ToolConfig {
         @Value("${decision.external.exchange-rate-url}") String exchangeRateUrl
     ) {
         return new CallExternalApiTool(restTemplate, weatherUrl, logisticsUrl, exchangeRateUrl);
+    }
+
+    @Bean
+    @Description("管理客服工单：创建、查询、更新状态、关闭。支持 action: create/query/update/close。")
+    public WorkOrderTool workOrderTool(WorkOrderService workOrderService) {
+        return new WorkOrderTool(workOrderService);
     }
 }
