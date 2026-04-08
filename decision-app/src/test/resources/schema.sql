@@ -36,3 +36,39 @@ CREATE TABLE IF NOT EXISTS knowledge_document
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS work_order (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_no        VARCHAR(32)    NOT NULL UNIQUE,
+    type            VARCHAR(32)    NOT NULL,
+    priority        VARCHAR(16)    NOT NULL DEFAULT 'MEDIUM',
+    status          VARCHAR(16)    NOT NULL DEFAULT 'PENDING',
+    title           VARCHAR(256)   NOT NULL,
+    description     TEXT           NOT NULL,
+    customer_id     VARCHAR(64)    NOT NULL,
+    assignee        VARCHAR(64)    DEFAULT NULL,
+    assignee_group  VARCHAR(64)    DEFAULT NULL,
+    resolution      TEXT           DEFAULT NULL,
+    session_id      VARCHAR(128)   DEFAULT NULL,
+    created_at      TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at     TIMESTAMP      DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS work_order_log (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_no        VARCHAR(32)    NOT NULL,
+    action          VARCHAR(32)    NOT NULL,
+    operator        VARCHAR(64)    NOT NULL,
+    content         TEXT           DEFAULT NULL,
+    created_at      TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS assignee_rule (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    work_order_type   VARCHAR(32)    NOT NULL UNIQUE,
+    assignee_group    VARCHAR(64)    NOT NULL,
+    assignee          VARCHAR(64)    NOT NULL,
+    assignee_email    VARCHAR(128)   DEFAULT NULL,
+    status            TINYINT        NOT NULL DEFAULT 1
+);
