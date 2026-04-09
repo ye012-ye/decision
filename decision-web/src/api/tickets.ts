@@ -18,7 +18,7 @@ export interface TicketCreatePayload {
   sessionId?: string;
 }
 
-export async function listTickets(query: TicketQuery) {
+export async function listTickets(query: TicketQuery = {}) {
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
     if (value) {
