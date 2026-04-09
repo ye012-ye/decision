@@ -2,7 +2,12 @@ package com.ye.decision.controller;
 
 import com.ye.decision.config.ThreadPoolConfig;
 import com.ye.decision.domain.dto.ReActEvent;
+import com.ye.decision.mapper.AssigneeRuleMapper;
 import com.ye.decision.mapper.ChatMessageMapper;
+import com.ye.decision.mapper.WorkOrderLogMapper;
+import com.ye.decision.mapper.WorkOrderMapper;
+import com.ye.decision.rag.mapper.KnowledgeBaseMapper;
+import com.ye.decision.rag.mapper.KnowledgeDocumentMapper;
 import com.ye.decision.service.AgentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +33,11 @@ class ChatControllerTest {
     @Autowired MockMvc mockMvc;
     @MockBean AgentService agentService;
     @MockBean ChatMessageMapper chatMessageMapper;
+    @MockBean AssigneeRuleMapper assigneeRuleMapper;
+    @MockBean WorkOrderMapper workOrderMapper;
+    @MockBean WorkOrderLogMapper workOrderLogMapper;
+    @MockBean KnowledgeBaseMapper knowledgeBaseMapper;
+    @MockBean KnowledgeDocumentMapper knowledgeDocumentMapper;
 
     @Test
     void stream_returnsSseContentType() throws Exception {
