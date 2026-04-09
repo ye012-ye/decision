@@ -33,3 +33,8 @@ build/
 .vscode/
 
 .worktrees/
+decision-web/node_modules/
+decision-web/dist/
+decision-web/.vite/
+decision-web/playwright-report/
+decision-web/test-results/
