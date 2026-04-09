@@ -14,6 +14,7 @@ interface SessionState {
   id: string;
   title: string;
   events: TimelineEvent[];
+  context: WorkspaceContext;
 }
 
 interface WorkspaceContext {
@@ -26,6 +27,10 @@ function createSession(title: string): SessionState {
     id: crypto.randomUUID(),
     title,
     events: [],
+    context: {
+      ticketOrderNo: '',
+      activeTab: 'ticket',
+    },
   };
 }
 
@@ -34,10 +39,6 @@ export const useWorkspaceStore = defineStore('workspace', {
     sessions: [createSession('新会话')],
     activeSessionId: '',
     sending: false,
-    context: {
-      ticketOrderNo: '',
-      activeTab: 'ticket',
-    } as WorkspaceContext,
   }),
   getters: {
     activeSession(state) {
@@ -79,8 +80,8 @@ export const useWorkspaceStore = defineStore('workspace', {
 
             const matchedOrderNo = extractOrderNo(event.data);
             if (matchedOrderNo) {
-              this.context.ticketOrderNo = matchedOrderNo;
-              this.context.activeTab = 'ticket';
+              session.context.ticketOrderNo = matchedOrderNo;
+              session.context.activeTab = 'ticket';
             }
           }
         );
@@ -95,13 +96,14 @@ export const useWorkspaceStore = defineStore('workspace', {
       description: string;
       customerId: string;
     }) {
+      const session = this.activeSession;
       const ticket = await createTicket({
         ...payload,
-        sessionId: this.activeSession.id,
+        sessionId: session.id,
       });
 
-      this.context.ticketOrderNo = ticket.orderNo;
-      this.context.activeTab = 'ticket';
+      session.context.ticketOrderNo = ticket.orderNo;
+      session.context.activeTab = 'ticket';
       return ticket;
     },
   },

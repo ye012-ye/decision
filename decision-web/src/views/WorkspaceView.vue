@@ -26,7 +26,7 @@ onMounted(() => {
       <header class="workspace__header">
         <div>
           <p class="page__eyebrow">智能客服</p>
-          <h1>对话工作台</h1>
+          <h1>工作台</h1>
         </div>
         <p class="workspace__status" :data-busy="store.sending">
           {{ store.sending ? '消息发送中' : '等待新指令' }}
@@ -37,6 +37,6 @@ onMounted(() => {
       <ComposerBar :busy="store.sending" @submit="store.sendMessage" />
     </div>
 
-    <ContextPanel :context="store.context" @create="store.createTicketFromContext" />
+    <ContextPanel :context="store.activeSession.context" @create="store.createTicketFromContext" />
   </section>
 </template>

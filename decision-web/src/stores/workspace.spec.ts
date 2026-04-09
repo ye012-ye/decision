@@ -19,6 +19,18 @@ vi.mock('@/api/chat', () => ({
   }),
 }));
 
+vi.mock('@/api/tickets', () => ({
+  createTicket: vi.fn(async () => {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    return {
+      orderNo: 'WO20260409099',
+    };
+  }),
+}));
+
 import { useWorkspaceStore } from './workspace';
 
 describe('workspace store', () => {
@@ -33,7 +45,7 @@ describe('workspace store', () => {
 
     expect(store.activeSession.events).toHaveLength(5);
     expect(store.activeSession.events[store.activeSession.events.length - 1]?.type).toBe('done');
-    expect(store.context.ticketOrderNo).toBe('WO20260409001');
+    expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
   });
 
   it('keeps streamed events on the session that started the message when active session changes mid-stream', async () => {
@@ -46,6 +58,10 @@ describe('workspace store', () => {
       id: crypto.randomUUID(),
       title: '新会话 2',
       events: [],
+      context: {
+        ticketOrderNo: '',
+        activeTab: 'ticket',
+      },
     });
 
     const sendPromise = store.sendMessage('客户投诉物流慢');
@@ -66,5 +82,44 @@ describe('workspace store', () => {
     expect(store.sessions[1].events).toHaveLength(0);
     expect(store.activeSessionId).toBe(store.sessions[1].id);
     expect(originalSessionId).toBe(originalSession.id);
+    expect(store.sessions[1].context.ticketOrderNo).toBe('');
+    expect(store.sessions[1].context.activeTab).toBe('ticket');
+    expect(originalSession.context.ticketOrderNo).toBe('WO20260409001');
+  });
+
+  it('keeps ticket context on the session that triggered ticket creation', async () => {
+    const store = useWorkspaceStore();
+    store.bootstrap();
+
+    const originalSession = store.activeSession;
+    store.sessions.push({
+      id: crypto.randomUUID(),
+      title: '新会话 2',
+      events: [],
+      context: {
+        ticketOrderNo: '',
+        activeTab: 'ticket',
+      },
+    });
+
+    store.activateSession(store.sessions[1].id);
+
+    const createPromise = store.createTicketFromContext({
+      type: 'LOGISTICS',
+      title: '物流异常跟进',
+      description: '客户反馈物流慢',
+      customerId: 'CUS-10086',
+      priority: 'HIGH',
+    });
+
+    await Promise.resolve();
+    store.activateSession(originalSession.id);
+
+    const ticket = await createPromise;
+
+    expect(ticket.orderNo).toBe('WO20260409099');
+    expect(store.sessions[1].context.ticketOrderNo).toBe('WO20260409099');
+    expect(originalSession.context.ticketOrderNo).toBe('');
+    expect(store.activeSession.context.ticketOrderNo).toBe('');
   });
 });
