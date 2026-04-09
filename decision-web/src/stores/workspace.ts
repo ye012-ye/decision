@@ -56,8 +56,9 @@ export const useWorkspaceStore = defineStore('workspace', {
     async sendMessage(message: string) {
       this.bootstrap();
       this.sending = true;
+      const session = this.activeSession;
 
-      this.activeSession.events.push({
+      session.events.push({
         id: crypto.randomUUID(),
         type: 'user',
         content: message,
@@ -66,11 +67,11 @@ export const useWorkspaceStore = defineStore('workspace', {
       try {
         await streamChat(
           {
-            sessionId: this.activeSession.id,
+            sessionId: session.id,
             message,
           },
           (event) => {
-            this.activeSession.events.push({
+            session.events.push({
               id: crypto.randomUUID(),
               type: event.event,
               content: event.data,
