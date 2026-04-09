@@ -1,5 +1,5 @@
 import type { KnowledgeBase, KnowledgeDocument } from '@/types/knowledge';
-import { requestJson } from './http';
+import { readJsonEnvelope, requestJson } from './http';
 
 export function listKnowledgeBases() {
   return requestJson<KnowledgeBase[]>('/api/kb');
@@ -24,13 +24,22 @@ export async function uploadDocument(kbCode: string, file: File, uploadedBy = 'c
   });
 
   if (!response.ok) {
+    const payload = await readJsonEnvelope(response);
+    if (payload) {
+      throw new Error(payload.msg);
+    }
+
     throw new Error(`上传失败: ${response.status}`);
   }
 
-  const payload = await response.json();
-  if (payload.code !== 200) {
+  const payload = await readJsonEnvelope<unknown>(response);
+  if (payload && payload.code !== 200) {
     throw new Error(payload.msg);
   }
 
-  return payload.data;
+  if (payload) {
+    return payload.data;
+  }
+
+  throw new Error(`上传失败: ${response.status}`);
 }
