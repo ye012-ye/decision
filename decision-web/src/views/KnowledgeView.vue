@@ -7,13 +7,25 @@ import { useKnowledgeStore } from '@/stores/knowledge';
 
 const store = useKnowledgeStore();
 let refreshTimer: number | undefined;
+let pollingInFlight = false;
 
 async function refreshProcessingDocuments() {
+  if (pollingInFlight || !store.activeKbCode) {
+    return;
+  }
+
+  pollingInFlight = true;
+
   const processingDocIds = store.documents
     .filter((document) => document.status === 'PROCESSING')
     .map((document) => document.docId);
 
-  await Promise.all(processingDocIds.map((docId) => store.refreshDocumentStatus(docId)));
+  try {
+    const kbCode = store.activeKbCode;
+    await Promise.all(processingDocIds.map((docId) => store.refreshDocumentStatus(docId, kbCode)));
+  } finally {
+    pollingInFlight = false;
+  }
 }
 
 onMounted(async () => {
