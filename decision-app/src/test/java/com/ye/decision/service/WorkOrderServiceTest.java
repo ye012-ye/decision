@@ -105,7 +105,41 @@ class WorkOrderServiceTest {
         );
 
         assertThat(result).hasSize(1);
-        verify(workOrderMapper).selectList(any(QueryWrapper.class));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<QueryWrapper<WorkOrderEntity>> captor = ArgumentCaptor.forClass((Class) QueryWrapper.class);
+        verify(workOrderMapper).selectList(captor.capture());
+
+        QueryWrapper<WorkOrderEntity> query = captor.getValue();
+        String conditions = query.getExpression().getNormal().getSqlSegment();
+        String orderBy = query.getExpression().getOrderBy().getSqlSegment();
+
+        assertThat(conditions).contains("order_no");
+        assertThat(conditions).contains("customer_id");
+        assertThat(conditions).contains("status");
+        assertThat(conditions).contains("type");
+        assertThat(conditions).contains("priority");
+        assertThat(orderBy).containsIgnoringCase("created_at");
+        assertThat(orderBy).containsIgnoringCase("desc");
+    }
+
+    @Test
+    void list_ignoresBlankAndNullFiltersButStillSortsByCreatedAtDesc() {
+        when(workOrderMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(new WorkOrderEntity()));
+
+        List<WorkOrderEntity> result = service.list(" ", null, null, null, null);
+
+        assertThat(result).hasSize(1);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<QueryWrapper<WorkOrderEntity>> captor = ArgumentCaptor.forClass((Class) QueryWrapper.class);
+        verify(workOrderMapper).selectList(captor.capture());
+
+        QueryWrapper<WorkOrderEntity> query = captor.getValue();
+        String conditions = query.getExpression().getNormal().getSqlSegment();
+        String orderBy = query.getExpression().getOrderBy().getSqlSegment();
+
+        assertThat(conditions).isBlank();
+        assertThat(orderBy).containsIgnoringCase("created_at");
+        assertThat(orderBy).containsIgnoringCase("desc");
     }
 
     @Test
