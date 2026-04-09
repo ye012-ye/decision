@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.stream.Collectors;
 
+/**
+ * @author ye
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

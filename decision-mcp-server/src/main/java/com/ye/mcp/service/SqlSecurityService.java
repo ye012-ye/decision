@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * MCP SQL 安全校验服务。
@@ -128,10 +127,18 @@ public class SqlSecurityService {
     }
 
     private SqlOperationType resolveOperationType(Statement statement) {
-        if (statement instanceof Select) return SqlOperationType.SELECT;
-        if (statement instanceof Insert) return SqlOperationType.INSERT;
-        if (statement instanceof Update) return SqlOperationType.UPDATE;
-        if (statement instanceof Delete) return SqlOperationType.DELETE;
+        if (statement instanceof Select) {
+            return SqlOperationType.SELECT;
+        }
+        if (statement instanceof Insert) {
+            return SqlOperationType.INSERT;
+        }
+        if (statement instanceof Update) {
+            return SqlOperationType.UPDATE;
+        }
+        if (statement instanceof Delete) {
+            return SqlOperationType.DELETE;
+        }
         // 非 DML 语句（DDL/DCL 等）一律拒绝
         throw new McpException(McpErrorCode.SQL_FORBIDDEN_KEYWORD,
             "不支持的语句类型: " + statement.getClass().getSimpleName());

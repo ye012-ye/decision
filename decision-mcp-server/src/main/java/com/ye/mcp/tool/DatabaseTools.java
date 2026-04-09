@@ -18,6 +18,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * @author ye
+ */
 @Component
 public class DatabaseTools {
 
@@ -44,6 +47,9 @@ public class DatabaseTools {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 列出数据库中可查询的表。返回表名和注释。用于了解数据库结构。
+     */
     @Tool(description = "列出数据库中可查询的表。返回表名和注释。用于了解数据库结构。")
     public String listTables() {
         try {
@@ -71,6 +77,9 @@ public class DatabaseTools {
         }
     }
 
+    /**
+     * 查看指定表结构
+     */
     @Tool(description = "查看指定表的结构，包括列名、数据类型、索引信息。用于了解表结构后编写SQL。")
     public String describeTable(
             @ToolParam(description = "表名") String tableName) {
@@ -91,6 +100,9 @@ public class DatabaseTools {
         }
     }
 
+    /**
+     * 在数据库上执行只读SELECT查询
+     */
     @Tool(description = "在数据库上执行只读SELECT查询。支持复杂查询、JOIN、聚合。返回查询结果JSON。需先用listTables和describeTable了解表结构。")
     public String queryData(
             @ToolParam(description = "SQL查询语句") String sql,
@@ -124,7 +136,9 @@ public class DatabaseTools {
             return "{\"error\":\"query_failed\",\"message\":\"" + e.getMessage() + "\"}";
         }
     }
-
+    /**
+     * 在数据库执行INSERT/UPDATE/DELETE操作
+     */
     @Tool(description = "在数据库执行INSERT/UPDATE/DELETE操作。仅在写操作启用时可用。需谨慎使用。")
     public String executeSql(
             @ToolParam(description = "SQL语句") String sql) {

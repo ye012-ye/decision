@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
  *   <li>done     — 结束标记</li>
  *   <li>error    — 异常信息</li>
  * </ul>
+ * @author ye
  */
 @RestController
 @RequestMapping("/api/chat")
