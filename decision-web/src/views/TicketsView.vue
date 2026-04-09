@@ -20,7 +20,7 @@ onMounted(() => {
         <p class="page__eyebrow">Service</p>
         <h1>工单管理</h1>
       </div>
-      <p class="tickets-page__status" :data-loading="store.loading">
+      <p class="tickets-page__status" :data-loading="store.loading" role="status" aria-live="polite">
         {{ store.loading ? '列表加载中' : '列表已同步' }}
       </p>
     </header>

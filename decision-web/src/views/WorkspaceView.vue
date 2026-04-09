@@ -28,7 +28,7 @@ onMounted(() => {
           <p class="page__eyebrow">智能客服</p>
           <h1>工作台</h1>
         </div>
-        <p class="workspace__status" :data-busy="store.sending">
+        <p class="workspace__status" :data-busy="store.sending" role="status" aria-live="polite">
           {{ store.sending ? '消息发送中' : '等待新指令' }}
         </p>
       </header>

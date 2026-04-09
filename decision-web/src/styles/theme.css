@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #07111b;
   --bg-elevated: rgba(17, 29, 43, 0.72);
   --panel: rgba(11, 20, 31, 0.85);
@@ -9,7 +10,7 @@
   --ok: #40c2ad;
   --danger: #f07863;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
-  font-family: "Noto Sans SC", sans-serif;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--text);
   background:
     radial-gradient(circle at top left, rgba(240, 170, 82, 0.14), transparent 28%),
@@ -17,9 +18,59 @@
     linear-gradient(180deg, #08111c 0%, #050b13 100%);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   min-height: 100vh;
+  color: var(--text);
+  line-height: 1.5;
   background: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body,
+button,
+textarea,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  color: inherit;
+  background: none;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(240, 170, 82, 0.75);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: #10161e;
+  background: rgba(240, 170, 82, 0.75);
 }
 
 #app {
@@ -28,18 +79,23 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: minmax(240px, 272px) minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .app-shell__main {
-  padding: 32px;
+  min-width: 0;
+  padding: clamp(16px, 2.5vw, 32px);
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
   padding: 24px;
   border-right: 1px solid var(--line);
-  background: rgba(7, 17, 27, 0.78);
+  background: linear-gradient(180deg, rgba(8, 16, 26, 0.9), rgba(7, 17, 27, 0.82));
   backdrop-filter: blur(18px);
 }
 
@@ -67,19 +123,34 @@ body {
   border: 1px solid transparent;
   border-radius: 14px;
   color: var(--text);
+  text-align: left;
   text-decoration: none;
 }
 
-.sidebar__link.router-link-active {
+.sidebar__link:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar__link.router-link-active,
+.sidebar__link.router-link-exact-active {
   border-color: rgba(240, 170, 82, 0.35);
   background: rgba(240, 170, 82, 0.08);
 }
 
+.page,
+.workspace {
+  width: min(100%, 1600px);
+  margin: 0 auto;
+}
+
 .page {
+  display: grid;
+  gap: 18px;
   min-height: calc(100vh - 64px);
   border: 1px solid var(--line);
   border-radius: 28px;
-  padding: 28px;
+  padding: clamp(18px, 2.2vw, 28px);
   background: var(--panel);
   box-shadow: var(--shadow);
 }
@@ -88,7 +159,12 @@ body {
   display: grid;
   grid-template-columns: 256px minmax(0, 1fr) 340px;
   gap: 18px;
-  min-height: calc(100vh - 128px);
+  min-height: calc(100vh - 64px);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: clamp(18px, 2.2vw, 24px);
+  background: linear-gradient(180deg, rgba(12, 22, 34, 0.88), rgba(7, 17, 27, 0.94));
+  box-shadow: var(--shadow);
 }
 
 .workspace__center {
@@ -132,11 +208,18 @@ body {
   margin-bottom: 16px;
 }
 
+.workspace-panel__header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
 .session-rail,
 .context-panel {
   position: sticky;
   top: 20px;
   align-self: start;
+  min-width: 0;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -203,6 +286,7 @@ body {
   border-left-width: 3px;
   border-radius: 18px;
   background: rgba(11, 20, 31, 0.9);
+  overflow-wrap: anywhere;
 }
 
 .chat-timeline__event[data-type='user'] {
@@ -355,12 +439,19 @@ body {
   }
 
   .sidebar {
+    position: static;
+    min-height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
-  .app-shell__main {
-    padding: 16px;
+  .sidebar__nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sidebar__link {
+    justify-self: stretch;
+    text-align: center;
   }
 
   .workspace {
@@ -382,5 +473,17 @@ body {
 
   .chat-timeline__event {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .page,
+  .workspace {
+    border-radius: 20px;
+    padding: 16px;
+  }
+
+  .sidebar {
+    padding: 18px 16px;
   }
 }

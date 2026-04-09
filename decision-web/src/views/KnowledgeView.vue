@@ -54,7 +54,7 @@ onBeforeUnmount(() => {
         <p class="page__eyebrow">RAG</p>
         <h1>知识库管理</h1>
       </div>
-      <p class="knowledge-page__status" :data-loading="store.loading">
+      <p class="knowledge-page__status" :data-loading="store.loading" role="status" aria-live="polite">
         {{ store.loading ? '知识库加载中' : '知识库已同步' }}
       </p>
     </header>
