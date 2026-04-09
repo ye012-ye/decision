@@ -21,7 +21,7 @@ onMounted(() => {
         <h1>工单管理</h1>
       </div>
       <p class="tickets-page__status" :data-loading="store.loading">
-        {{ store.loading ? '列表加载中' : '等待筛选' }}
+        {{ store.loading ? '列表加载中' : '列表已同步' }}
       </p>
     </header>
 

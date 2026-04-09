@@ -37,9 +37,19 @@ export const useTicketsStore = defineStore('tickets', {
       try {
         this.items = await listTickets(this.filters);
 
-        if (!this.selected && this.items[0]) {
-          await this.selectTicket(this.items[0].orderNo);
+        if (!this.items.length) {
+          this.selected = null;
+          this.logs = [];
+          return;
         }
+
+        const selectedOrderNo = this.selected?.orderNo;
+        const nextOrderNo =
+          selectedOrderNo && this.items.some((ticket) => ticket.orderNo === selectedOrderNo)
+            ? selectedOrderNo
+            : this.items[0].orderNo;
+
+        await this.selectTicket(nextOrderNo);
       } finally {
         this.loading = false;
       }
@@ -54,16 +64,16 @@ export const useTicketsStore = defineStore('tickets', {
         return;
       }
 
-      this.selected = await updateTicketStatus(this.selected.orderNo, status, note, operator);
-      this.logs = await getTicketLogs(this.selected.orderNo);
+      await updateTicketStatus(this.selected.orderNo, status, note, operator);
+      await this.loadTickets();
     },
     async closeSelected(resolution: string, operator: string) {
       if (!this.selected) {
         return;
       }
 
-      this.selected = await closeTicket(this.selected.orderNo, resolution, operator);
-      this.logs = await getTicketLogs(this.selected.orderNo);
+      await closeTicket(this.selected.orderNo, resolution, operator);
+      await this.loadTickets();
     },
   },
 });

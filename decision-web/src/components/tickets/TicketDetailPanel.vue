@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps<{
   ticket: null | {
@@ -34,6 +34,15 @@ const statusLabels: Record<string, string> = {
   RESOLVED: '已解决',
   CLOSED: '已关闭',
 };
+
+watch(
+  () => props.ticket?.orderNo,
+  () => {
+    note.value = '';
+    resolution.value = '';
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
