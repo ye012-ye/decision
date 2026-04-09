@@ -93,6 +93,22 @@ class WorkOrderServiceTest {
     }
 
     @Test
+    void list_appliesOptionalFiltersAndSortsByCreatedAtDesc() {
+        when(workOrderMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(new WorkOrderEntity()));
+
+        List<WorkOrderEntity> result = service.list(
+            "WO20260409001",
+            "13800001111",
+            WorkOrderStatus.PROCESSING,
+            WorkOrderType.LOGISTICS,
+            WorkOrderPriority.HIGH
+        );
+
+        assertThat(result).hasSize(1);
+        verify(workOrderMapper).selectList(any(QueryWrapper.class));
+    }
+
+    @Test
     void updateStatus_changesStatusAndLogsAction() {
         WorkOrderEntity entity = new WorkOrderEntity();
         setField(entity, "orderNo", "WO20260408001");

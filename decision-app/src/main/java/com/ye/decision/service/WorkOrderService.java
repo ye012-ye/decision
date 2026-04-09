@@ -103,6 +103,31 @@ public class WorkOrderService {
         );
     }
 
+    public List<WorkOrderEntity> list(String orderNo,
+                                      String customerId,
+                                      WorkOrderStatus status,
+                                      WorkOrderType type,
+                                      WorkOrderPriority priority) {
+        QueryWrapper<WorkOrderEntity> query = new QueryWrapper<>();
+        if (orderNo != null && !orderNo.isBlank()) {
+            query.eq("order_no", orderNo);
+        }
+        if (customerId != null && !customerId.isBlank()) {
+            query.eq("customer_id", customerId);
+        }
+        if (status != null) {
+            query.eq("status", status.getCode());
+        }
+        if (type != null) {
+            query.eq("type", type.getCode());
+        }
+        if (priority != null) {
+            query.eq("priority", priority.getCode());
+        }
+        query.orderByDesc("created_at");
+        return workOrderMapper.selectList(query);
+    }
+
     public void updateStatus(String orderNo, WorkOrderStatus newStatus, String note, String operator) {
         WorkOrderEntity entity = queryByOrderNo(orderNo);
         if (entity == null) {
