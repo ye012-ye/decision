@@ -26,5 +26,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: '工作台' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '知识库' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '工单' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '工作台' })).toBeInTheDocument();
+    expect(screen.getByText('智能客服')).toBeInTheDocument();
   });
 });
