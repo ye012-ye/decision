@@ -58,7 +58,11 @@ public class WorkOrderController {
 
     @GetMapping("/{orderNo}")
     public Result<WorkOrderVO> getByOrderNo(@PathVariable String orderNo) {
-        return Result.ok(WorkOrderVO.from(workOrderService.queryByOrderNo(orderNo)));
+        var entity = workOrderService.queryByOrderNo(orderNo);
+        if (entity == null) {
+            throw new IllegalArgumentException("工单不存在: " + orderNo);
+        }
+        return Result.ok(WorkOrderVO.from(entity));
     }
 
     @PatchMapping("/{orderNo}/status")
