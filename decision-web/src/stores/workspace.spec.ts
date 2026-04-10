@@ -14,7 +14,9 @@ vi.mock('@/api/chat', () => ({
       };
     });
     onEvent({ event: 'action', data: 'callExternalApiTool | {"service":"logistics"}' });
-    onEvent({ event: 'answer', data: '物流已更新，已创建工单 WO20260409001' });
+    onEvent({ event: 'observation', data: '查询到物流延迟 2 天' });
+    onEvent({ event: 'answer', data: '物流已更新，' });
+    onEvent({ event: 'answer', data: '已创建工单 WO20260409001' });
     onEvent({ event: 'done', data: '[DONE]' });
   }),
 }));
@@ -39,16 +41,46 @@ describe('workspace store', () => {
     resumeStream = null;
   });
 
-  it('streams chat events into the active session timeline', async () => {
+  it('sending creates one user message and one assistant message per streamed turn', async () => {
     const store = useWorkspaceStore();
     await store.sendMessage('客户投诉物流慢');
 
-    expect(store.activeSession.events).toHaveLength(5);
-    expect(store.activeSession.events[store.activeSession.events.length - 1]?.type).toBe('done');
+    expect(store.activeSession.messages).toHaveLength(2);
+    expect(store.activeSession.messages[0]?.role).toBe('user');
+    expect(store.activeSession.messages[0]?.content).toBe('客户投诉物流慢');
+    expect(store.activeSession.messages[1]?.role).toBe('assistant');
+    expect(store.activeSession.messages[1]?.status).toBe('done');
     expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
   });
 
-  it('keeps streamed events on the session that started the message when active session changes mid-stream', async () => {
+  it('multiple streamed answer payloads accumulate into one assistant message', async () => {
+    const store = useWorkspaceStore();
+    await store.sendMessage('客户投诉物流慢');
+
+    const assistantMessage = store.activeSession.messages[1];
+    expect(assistantMessage?.role).toBe('assistant');
+    expect(assistantMessage?.content).toBe('物流已更新，已创建工单 WO20260409001');
+  });
+
+  it('process entries collect under that assistant message', async () => {
+    const store = useWorkspaceStore();
+    await store.sendMessage('客户投诉物流慢');
+
+    const assistantMessage = store.activeSession.messages[1];
+    expect(assistantMessage?.role).toBe('assistant');
+    expect(assistantMessage?.process.map((entry) => entry.type)).toEqual([
+      'thought',
+      'action',
+      'observation',
+    ]);
+    expect(assistantMessage?.process.map((entry) => entry.content)).toEqual([
+      '需要查询物流',
+      'callExternalApiTool | {"service":"logistics"}',
+      '查询到物流延迟 2 天',
+    ]);
+  });
+
+  it('session switching during streaming keeps updates on the originating session', async () => {
     const store = useWorkspaceStore();
     store.bootstrap();
 
@@ -57,7 +89,7 @@ describe('workspace store', () => {
     store.sessions.push({
       id: crypto.randomUUID(),
       title: '新会话 2',
-      events: [],
+      messages: [],
       context: {
         ticketOrderNo: '',
         activeTab: 'ticket',
@@ -72,14 +104,11 @@ describe('workspace store', () => {
 
     await sendPromise;
 
-    expect(originalSession.events.map((event) => event.type)).toEqual([
-      'user',
-      'thought',
-      'action',
-      'answer',
-      'done',
-    ]);
-    expect(store.sessions[1].events).toHaveLength(0);
+    expect(originalSession.messages).toHaveLength(2);
+    expect(originalSession.messages[0]?.role).toBe('user');
+    expect(originalSession.messages[1]?.role).toBe('assistant');
+    expect(originalSession.messages[1]?.content).toBe('物流已更新，已创建工单 WO20260409001');
+    expect(store.sessions[1].messages).toHaveLength(0);
     expect(store.activeSessionId).toBe(store.sessions[1].id);
     expect(originalSessionId).toBe(originalSession.id);
     expect(store.sessions[1].context.ticketOrderNo).toBe('');
@@ -95,7 +124,7 @@ describe('workspace store', () => {
     store.sessions.push({
       id: crypto.randomUUID(),
       title: '新会话 2',
-      events: [],
+      messages: [],
       context: {
         ticketOrderNo: '',
         activeTab: 'ticket',

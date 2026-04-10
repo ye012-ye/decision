@@ -1,19 +1,14 @@
 import { defineStore } from 'pinia';
 
 import { streamChat } from '@/api/chat';
+import type { ChatAssistantMessage, ChatMessage, ChatProcessType } from '@/types/chat';
 import { createTicket } from '@/api/tickets';
 import { extractOrderNo } from '@/utils/extractors';
-
-interface TimelineEvent {
-  id: string;
-  type: string;
-  content: string;
-}
 
 interface SessionState {
   id: string;
   title: string;
-  events: TimelineEvent[];
+  messages: ChatMessage[];
   context: WorkspaceContext;
 }
 
@@ -26,12 +21,22 @@ function createSession(title: string): SessionState {
   return {
     id: crypto.randomUUID(),
     title,
-    events: [],
+    messages: [],
     context: {
       ticketOrderNo: '',
       activeTab: 'ticket',
     },
   };
+}
+
+const FALLBACK_ASSISTANT_MESSAGE = '暂未获取到回复，请稍后重试。';
+
+function appendProcessEntry(message: ChatAssistantMessage, type: ChatProcessType, content: string) {
+  message.process.push({
+    id: crypto.randomUUID(),
+    type,
+    content,
+  });
 }
 
 export const useWorkspaceStore = defineStore('workspace', {
@@ -54,16 +59,35 @@ export const useWorkspaceStore = defineStore('workspace', {
     activateSession(sessionId: string) {
       this.activeSessionId = sessionId;
     },
+    toggleProcess(messageId: string) {
+      this.bootstrap();
+      const session = this.activeSession;
+      const message = session.messages.find((item) => item.id === messageId && item.role === 'assistant');
+      if (!message || message.role !== 'assistant') {
+        return;
+      }
+
+      message.processExpanded = !message.processExpanded;
+    },
     async sendMessage(message: string) {
       this.bootstrap();
       this.sending = true;
       const session = this.activeSession;
-
-      session.events.push({
+      const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        type: 'user',
+        role: 'user',
         content: message,
-      });
+      };
+      const assistantMessage: ChatAssistantMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        process: [],
+        processExpanded: false,
+      };
+
+      session.messages.push(userMessage, assistantMessage);
 
       try {
         await streamChat(
@@ -72,11 +96,20 @@ export const useWorkspaceStore = defineStore('workspace', {
             message,
           },
           (event) => {
-            session.events.push({
-              id: crypto.randomUUID(),
-              type: event.event,
-              content: event.data,
-            });
+            if (event.event === 'answer') {
+              assistantMessage.content += event.data;
+            } else if (
+              event.event === 'thought' ||
+              event.event === 'action' ||
+              event.event === 'observation'
+            ) {
+              appendProcessEntry(assistantMessage, event.event, event.data);
+            } else if (event.event === 'done') {
+              assistantMessage.status = 'done';
+            } else if (event.event === 'error') {
+              assistantMessage.status = 'error';
+              assistantMessage.processExpanded = true;
+            }
 
             const matchedOrderNo = extractOrderNo(event.data);
             if (matchedOrderNo) {
@@ -85,6 +118,12 @@ export const useWorkspaceStore = defineStore('workspace', {
             }
           }
         );
+        if (assistantMessage.status === 'streaming') {
+          if (!assistantMessage.content.trim()) {
+            assistantMessage.content = FALLBACK_ASSISTANT_MESSAGE;
+          }
+          assistantMessage.status = 'done';
+        }
       } finally {
         this.sending = false;
       }
