@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
  * 每个对话的消息都以 JSON 列表存储在 "chat：memory：{conversationId}"。
  * 所有已知的对话ID都被记录在Redis的"chat：memory：__ids__"中。
  * saveAll() 同时将 conversationId 加入 pending 集合并发布 MQ 消息供异步写入 MySQL。
+ * @author ye
  */
 public class RedissonChatMemoryRepository implements ChatMemoryRepository {
 
@@ -89,17 +90,25 @@ public class RedissonChatMemoryRepository implements ChatMemoryRepository {
         }
     }
 
+    /**
+     * 反序列化
+     * @param json
+     * @return
+     */
     private Message deserialize(String json) {
         ChatMemoryMqMessage.MessageItem item = parseItem(json);
         return switch (item.type()) {
             case "user"      -> new UserMessage(item.text());
             case "assistant" -> new AssistantMessage(item.text());
             case "system"    -> new SystemMessage(item.text());
+            case "tool"      -> ToolResponseMessage.builder()
+                .responses(List.of(new ToolResponseMessage.ToolResponse("", "", item.text())))
+                .build();
             default -> throw new IllegalArgumentException("Unknown message type: " + item.type());
         };
     }
 
-    /** Static helper so the scheduler can reuse parsing without holding an instance. */
+    /** 静态辅助器，让调度器可以重复使用解析，而无需保留实例. */
     @SuppressWarnings("unchecked")
     public static ChatMemoryMqMessage.MessageItem parseItem(String json) {
         try {

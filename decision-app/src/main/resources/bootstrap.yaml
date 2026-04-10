@@ -72,10 +72,15 @@ spring:
     # MCP Client：通过 SSE 连接独立的 MCP Server
     mcp:
       client:
+        enabled: true
+        initialized: false
+        toolcallback:
+          enabled: false
         sse:
           connections:
             decision-mcp:
               url: http://localhost:8081
+
 
   # 文件上传
   servlet:
@@ -91,6 +96,14 @@ spring:
     password: ${MAIL_PASSWORD:changeme}
     properties:
       mail.smtp.ssl.enable: true
+# 邮件健康检查
+management:
+  health:
+    mail:
+      enabled: false
+
+
+
 
 # MyBatis-Plus
 mybatis-plus:

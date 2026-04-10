@@ -68,18 +68,19 @@ public class MilvusHybridSearchService implements HybridSearchService {
         AnnSearchReq denseReq = AnnSearchReq.builder()
             .vectorFieldName("dense_vector")
             .vectors(Collections.singletonList(new FloatVec(denseEmbedding)))
-            .topK(fetchK)
+            //limit: 搜索结果数量，不能超过索引的 topK
+            .limit(fetchK)
             .metricType(IndexParam.MetricType.COSINE)
-            .expr(filter)
+            .filter(filter)
             .build();
 
         // ── 2. Sparse BM25 Search（关键词检索） ──────────────────
         AnnSearchReq sparseReq = AnnSearchReq.builder()
             .vectorFieldName("sparse_vector")
             .vectors(Collections.singletonList(new EmbeddedText(query)))
-            .topK(fetchK)
+            .limit(fetchK)
             .metricType(IndexParam.MetricType.BM25)
-            .expr(filter)
+            .filter(filter)
             .build();
 
         // ── 3. Hybrid Search + RRF 融合排序 ─────────────────────
@@ -88,8 +89,8 @@ public class MilvusHybridSearchService implements HybridSearchService {
         HybridSearchReq hybridReq = HybridSearchReq.builder()
             .collectionName(collectionName)
             .searchRequests(List.of(denseReq, sparseReq))
-            .ranker(new RRFRanker(rrfK))
-            .topK(fetchK)
+            .ranker(RRFRanker.builder().k(rrfK).build())
+            .limit(fetchK)
             .outFields(OUTPUT_FIELDS)
             .build();
 

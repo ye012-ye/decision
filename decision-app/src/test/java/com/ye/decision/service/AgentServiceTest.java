@@ -13,6 +13,7 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import reactor.test.StepVerifier;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -30,7 +31,7 @@ class AgentServiceTest {
         when(chatModel.call(any(Prompt.class))).thenReturn(response);
         when(chatMemory.get(any())).thenReturn(List.of());
 
-        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of(), null);
+        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List::of, null);
 
         StepVerifier.create(service.chat("s1", "hi"))
             .expectNext(ReActEvent.answer("你好，有什么可以帮你的？"))
@@ -67,12 +68,49 @@ class AgentServiceTest {
         when(toolCallback.getToolDefinition()).thenReturn(toolDef);
         when(toolCallback.call(anyString())).thenReturn("{\"result\":42}");
 
-        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", List.of(toolCallback), null);
+        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", () -> List.of(toolCallback), null);
 
         StepVerifier.create(service.chat("s1", "查询"))
             .expectNext(ReActEvent.action("mockTool", "{\"q\":\"test\"}"))
             .expectNext(ReActEvent.observation("{\"result\":42}"))
             .expectNext(ReActEvent.answer("查询结果是 42"))
+            .verifyComplete();
+    }
+
+    @Test
+    void chat_usesLatestToolCatalogInsteadOfConstructorSnapshot() {
+        AssistantMessage withToolCall = AssistantMessage.builder()
+            .content("")
+            .toolCalls(List.of(new AssistantMessage.ToolCall("tc1", "function", "dynamicTool", "{\"q\":\"later\"}")))
+            .build();
+        ChatResponse toolCallResponse = new ChatResponse(List.of(new Generation(withToolCall)));
+
+        AssistantMessage finalAnswer = new AssistantMessage("动态工具已执行");
+        ChatResponse answerResponse = new ChatResponse(List.of(new Generation(finalAnswer)));
+
+        when(chatModel.call(any(Prompt.class)))
+            .thenReturn(toolCallResponse)
+            .thenReturn(answerResponse);
+        when(chatMemory.get(any())).thenReturn(List.of());
+
+        ToolCallback toolCallback = mock(ToolCallback.class);
+        ToolDefinition toolDef = ToolDefinition.builder()
+            .name("dynamicTool")
+            .description("dynamic")
+            .inputSchema("{}")
+            .build();
+        when(toolCallback.getToolDefinition()).thenReturn(toolDef);
+        when(toolCallback.call(anyString())).thenReturn("{\"result\":\"ok\"}");
+
+        AtomicReference<List<ToolCallback>> toolCallbacks = new AtomicReference<>(List.of());
+        AgentService service = new AgentService(chatModel, chatMemory, "你是助手", toolCallbacks::get, null);
+
+        toolCallbacks.set(List.of(toolCallback));
+
+        StepVerifier.create(service.chat("s1", "查询"))
+            .expectNext(ReActEvent.action("dynamicTool", "{\"q\":\"later\"}"))
+            .expectNext(ReActEvent.observation("{\"result\":\"ok\"}"))
+            .expectNext(ReActEvent.answer("动态工具已执行"))
             .verifyComplete();
     }
 }

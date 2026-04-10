@@ -38,8 +38,7 @@ public class AgentService {
     private final ChatModel chatModel;
     private final ChatMemory chatMemory;
     private final String systemPrompt;
-    private final List<ToolCallback> toolCallbacks;
-    private final Map<String, ToolCallback> toolMap;
+    private final ToolCatalog toolCatalog;
     private final ExecutorService sseExecutor;
 
     /**
@@ -63,14 +62,12 @@ public class AgentService {
     public AgentService(ChatModel chatModel,
                         ChatMemory chatMemory,
                         String systemPrompt,
-                        List<ToolCallback> toolCallbacks,
+                        ToolCatalog toolCatalog,
                         ExecutorService sseExecutor) {
         this.chatModel = chatModel;
         this.chatMemory = chatMemory;
         this.systemPrompt = systemPrompt;
-        this.toolCallbacks = toolCallbacks;
-        this.toolMap = toolCallbacks.stream()
-            .collect(Collectors.toMap(tc -> tc.getToolDefinition().name(), Function.identity()));
+        this.toolCatalog = toolCatalog;
         this.sseExecutor = sseExecutor;
     }
 
@@ -99,21 +96,29 @@ public class AgentService {
      * 专用工具（外部 API、知识库搜索）仅在消息匹配相关关键词时加入。
      * 如果没有匹配到任何专用工具关键词，则回退为全部工具。
      */
-    private List<ToolCallback> selectTools(String message) {
+    private List<ToolCallback> selectTools(String message, Map<String, ToolCallback> toolMap,
+                                           List<ToolCallback> availableTools) {
         List<ToolCallback> selected = new ArrayList<>();
-        selected.add(toolMap.get("queryRedisTool"));
-        selected.add(toolMap.get("queryMysqlTool"));
+        addToolIfPresent(selected, toolMap, "queryRedisTool");
+        addToolIfPresent(selected, toolMap, "queryMysqlTool");
 
         String lowerMessage = message.toLowerCase();
         for (Map.Entry<String, List<String>> entry : TOOL_KEYWORDS.entrySet()) {
             if (entry.getValue().stream().anyMatch(lowerMessage::contains)) {
-                ToolCallback cb = toolMap.get(entry.getKey());
-                if (cb != null) {
-                    selected.add(cb);
-                }
+                addToolIfPresent(selected, toolMap, entry.getKey());
             }
         }
+        if (selected.isEmpty()) {
+            return availableTools;
+        }
         return selected;
+    }
+
+    private void addToolIfPresent(List<ToolCallback> selected, Map<String, ToolCallback> toolMap, String toolName) {
+        ToolCallback callback = toolMap.get(toolName);
+        if (callback != null) {
+            selected.add(callback);
+        }
     }
 
     private void doReActLoop(String sessionId, String message, FluxSink<ReActEvent> sink) {
@@ -125,7 +130,14 @@ public class AgentService {
         messages.add(new UserMessage(message));
 
         // 2. 动态选择工具并构建 ChatOptions
-        List<ToolCallback> selectedTools = selectTools(message);
+        List<ToolCallback> availableTools = toolCatalog.getToolCallbacks();
+        Map<String, ToolCallback> toolMap = availableTools.stream()
+            .collect(Collectors.toMap(
+                tc -> tc.getToolDefinition().name(),
+                Function.identity(),
+                (existing, ignored) -> existing
+            ));
+        List<ToolCallback> selectedTools = selectTools(message, toolMap, availableTools);
         DashScopeChatOptions options = DashScopeChatOptions.builder()
             .toolCallbacks(selectedTools)
             .internalToolExecutionEnabled(false)
@@ -157,7 +169,7 @@ public class AgentService {
                     // 单工具调用 — 直接执行
                     AssistantMessage.ToolCall tc = toolCalls.get(0);
                     sink.next(ReActEvent.action(tc.name(), tc.arguments()));
-                    String result = executeTool(tc);
+                    String result = executeTool(tc, toolMap);
                     sink.next(ReActEvent.observation(result));
                     toolResponses = List.of(new ToolResponseMessage.ToolResponse(tc.id(), tc.name(), result));
                 } else {
@@ -167,7 +179,7 @@ public class AgentService {
                     }
                     List<CompletableFuture<ToolResponseMessage.ToolResponse>> futures = toolCalls.stream()
                         .map(tc -> CompletableFuture.supplyAsync(() -> {
-                            String result = executeTool(tc);
+                            String result = executeTool(tc, toolMap);
                             return new ToolResponseMessage.ToolResponse(tc.id(), tc.name(), result);
                         }, sseExecutor))
                         .toList();
@@ -193,7 +205,7 @@ public class AgentService {
         chatMemory.add(sessionId, turnMessages);
     }
 
-    private String executeTool(AssistantMessage.ToolCall toolCall) {
+    private String executeTool(AssistantMessage.ToolCall toolCall, Map<String, ToolCallback> toolMap) {
         ToolCallback callback = toolMap.get(toolCall.name());
         if (callback == null) {
             log.warn("Unknown tool: {}", toolCall.name());

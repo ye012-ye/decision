@@ -8,6 +8,8 @@ import com.ye.decision.domain.dto.WorkOrderReq;
 import com.ye.decision.tool.WorkOrderTool;
 import com.ye.decision.mq.ChatMemoryPublisher;
 import com.ye.decision.rag.domain.dto.KnowledgeSearchReq;
+import com.ye.decision.service.McpToolRegistry;
+import com.ye.decision.service.ToolCatalog;
 import com.ye.decision.tool.KnowledgeSearchTool;
 import com.ye.decision.tool.CallExternalApiTool;
 import com.ye.decision.tool.QueryMysqlTool;
@@ -16,9 +18,8 @@ import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +28,6 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -49,17 +49,14 @@ public class AiConfig {
             .build();
     }
 
-    // MCP Client 自动注入的 ToolCallbackProvider（来自 MCP Server 的工具）
-    @Autowired(required = false)
-    private ToolCallbackProvider mcpToolCallbackProvider;
-
     @Bean
-    public List<ToolCallback> toolCallbacks(QueryMysqlTool queryMysqlTool,
-                                            QueryRedisTool queryRedisTool,
-                                            CallExternalApiTool callExternalApiTool,
-                                            KnowledgeSearchTool knowledgeSearchTool,
-                                            WorkOrderTool workOrderTool) {
-        List<ToolCallback> callbacks = new ArrayList<>(List.of(
+    public ToolCatalog toolCatalog(QueryMysqlTool queryMysqlTool,
+                                   QueryRedisTool queryRedisTool,
+                                   CallExternalApiTool callExternalApiTool,
+                                   KnowledgeSearchTool knowledgeSearchTool,
+                                   WorkOrderTool workOrderTool,
+                                   ObjectProvider<McpToolRegistry> mcpToolRegistryProvider) {
+        List<ToolCallback> localCallbacks = List.copyOf(new ArrayList<>(List.of(
             FunctionToolCallback.builder("queryMysqlTool", queryMysqlTool)
                 .description("查询结构化业务数据，如订单、用户信息、交易记录、统计报表。适用于精确条件查询场景。")
                 .inputType(QueryMysqlReq.class)
@@ -80,14 +77,17 @@ public class AiConfig {
                 .description("管理客服工单：创建(create)、查询(query)、更新状态(update)、关闭(close)。创建时需提供 type/title/description/customerId，会自动指派处理人并发送通知。")
                 .inputType(WorkOrderReq.class)
                 .build()
-        ));
+        )));
 
-        // 添加 MCP Client 自动发现的工具（来自 decision-mcp-server）
-        if (mcpToolCallbackProvider != null) {
-            callbacks.addAll(Arrays.asList(mcpToolCallbackProvider.getToolCallbacks()));
-        }
-
-        return callbacks;
+        McpToolRegistry mcpToolRegistry = mcpToolRegistryProvider.getIfAvailable();
+        return () -> {
+            if (mcpToolRegistry == null) {
+                return localCallbacks;
+            }
+            List<ToolCallback> callbacks = new ArrayList<>(localCallbacks);
+            callbacks.addAll(mcpToolRegistry.getToolCallbacks());
+            return callbacks;
+        };
     }
 
     @Bean

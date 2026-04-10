@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class DocumentIngestionService {
      * @param fileName 原始文件名（注入到 chunk 元数据，支持来源溯源）
      * @throws RuntimeException 瞬时故障时抛出，触发 MQ 重试
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void ingest(String kbCode, String docId, String filePath, String fileName) {
         updateStatus(docId, DocumentStatus.PROCESSING, null);
 
@@ -128,14 +127,21 @@ public class DocumentIngestionService {
     public void markFailed(String docId, String errorMessage) {
         updateStatus(docId, DocumentStatus.FAILED, truncateErrorMsg(errorMessage));
     }
-
+    /**
+     * 判断异常是否可重试。
+     * <p>
+     * 仅支持 IOException 子类，以及 ConnectException / SocketTimeoutException / UnknownHostException。
+     *
+     * @param e 异常
+     * @return 是否可重试
+     */
     private boolean isRetriable(Throwable e) {
         Throwable cause = e;
-        while (cause != null) {
-            if (cause instanceof ConnectException
-                || cause instanceof java.net.SocketTimeoutException
-                || cause instanceof java.net.UnknownHostException
-                || cause instanceof IOException) {
+        // 使用 IdentityHashMap 防御 cause 链自引用/成环导致的死循环
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        while (cause != null && seen.add(cause)) {
+            // ConnectException / SocketTimeoutException / UnknownHostException 均为 IOException 子类
+            if (cause instanceof IOException) {
                 return true;
             }
             String msg = cause.getMessage();
