@@ -29,7 +29,7 @@ onMounted(() => {
           <h1>工作台</h1>
         </div>
         <p class="workspace__status" :data-busy="store.sending" role="status" aria-live="polite">
-          {{ store.sending ? '消息发送中' : '等待新指令' }}
+          {{ store.sending ? '正在生成回复' : '等待新指令' }}
         </p>
       </header>
 
