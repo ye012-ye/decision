@@ -89,6 +89,18 @@ export const useWorkspaceStore = defineStore('workspace', {
       };
 
       session.messages.push(userMessage, assistantMessage);
+      const assistantMessageId = assistantMessage.id;
+      const withAssistantMessage = (apply: (target: ChatAssistantMessage) => void) => {
+        const target = session.messages.find(
+          (item): item is ChatAssistantMessage => item.id === assistantMessageId && item.role === 'assistant'
+        );
+        if (!target) {
+          return;
+        }
+
+        apply(target);
+      };
+
       const updateTicketContextFromText = (text: string) => {
         const matchedOrderNo = extractOrderNo(text);
         if (!matchedOrderNo) {
@@ -106,49 +118,55 @@ export const useWorkspaceStore = defineStore('workspace', {
             message,
           },
           (event) => {
-            if (event.event === 'answer') {
-              assistantMessage.content += event.data;
-              updateTicketContextFromText(assistantMessage.content);
-            } else if (
-              event.event === 'thought' ||
-              event.event === 'action' ||
-              event.event === 'observation'
-            ) {
-              appendProcessEntry(assistantMessage, event.event, event.data);
-            } else if (event.event === 'done') {
-              if (assistantMessage.status === 'streaming') {
-                assistantMessage.status = 'done';
+            withAssistantMessage((target) => {
+              if (event.event === 'answer') {
+                target.content += event.data;
+                updateTicketContextFromText(target.content);
+              } else if (
+                event.event === 'thought' ||
+                event.event === 'action' ||
+                event.event === 'observation'
+              ) {
+                appendProcessEntry(target, event.event, event.data);
+              } else if (event.event === 'done') {
+                if (target.status === 'streaming') {
+                  target.status = 'done';
+                }
+              } else if (event.event === 'error') {
+                target.status = 'error';
+                target.processExpanded = true;
+                const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+                if (!target.content.trim()) {
+                  target.content = errorText;
+                } else {
+                  target.content += `\n${errorText}`;
+                }
               }
-            } else if (event.event === 'error') {
-              assistantMessage.status = 'error';
-              assistantMessage.processExpanded = true;
-              const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
-              if (!assistantMessage.content.trim()) {
-                assistantMessage.content = errorText;
-              } else {
-                assistantMessage.content += `\n${errorText}`;
-              }
-            }
+            });
 
             updateTicketContextFromText(event.data);
           }
         );
-        if (!assistantMessage.content.trim() && assistantMessage.status !== 'error') {
-          assistantMessage.content = FALLBACK_ASSISTANT_MESSAGE;
-        }
-        if (assistantMessage.status === 'streaming') {
-          assistantMessage.status = 'done';
-        }
+        withAssistantMessage((target) => {
+          if (!target.content.trim() && target.status !== 'error') {
+            target.content = FALLBACK_ASSISTANT_MESSAGE;
+          }
+          if (target.status === 'streaming') {
+            target.status = 'done';
+          }
+        });
       } catch (error) {
-        assistantMessage.status = 'error';
-        assistantMessage.processExpanded = true;
-        const rawErrorText = error instanceof Error ? error.message.trim() : '';
-        const errorText = rawErrorText || FALLBACK_ASSISTANT_ERROR_MESSAGE;
-        if (!assistantMessage.content.trim()) {
-          assistantMessage.content = errorText;
-        } else if (errorText) {
-          assistantMessage.content += `\n${errorText}`;
-        }
+        withAssistantMessage((target) => {
+          target.status = 'error';
+          target.processExpanded = true;
+          const rawErrorText = error instanceof Error ? error.message.trim() : '';
+          const errorText = rawErrorText || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+          if (!target.content.trim()) {
+            target.content = errorText;
+          } else if (errorText) {
+            target.content += `\n${errorText}`;
+          }
+        });
         throw error;
       } finally {
         this.sending = false;
