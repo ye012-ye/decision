@@ -53,6 +53,8 @@ describe('ChatTimeline', () => {
 
     const disclosure = screen.getByRole('button', { name: '展开过程' });
     expect(disclosure).toBeInTheDocument();
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(disclosure).toHaveAttribute('aria-controls', 'chat-process-assistant-1');
     expect(screen.queryByText('检索工单与物流状态')).not.toBeInTheDocument();
 
     await fireEvent.click(disclosure);
@@ -79,10 +81,13 @@ describe('ChatTimeline', () => {
       ],
     });
 
+    const disclosure = screen.getByRole('button', { name: '收起过程' });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(disclosure).toHaveAttribute('aria-controls', 'chat-process-assistant-1');
     expect(screen.getByText('检索工单与物流状态')).toBeInTheDocument();
   });
 
-  it('keeps process details visible for assistant error states', () => {
+  it('keeps process details visible for assistant error states when expanded', () => {
     render(ChatTimeline, {
       props: {
         messages: [
@@ -91,12 +96,13 @@ describe('ChatTimeline', () => {
             ...baseAssistantMessage,
             id: 'assistant-err-1',
             status: 'error',
-            processExpanded: false,
+            processExpanded: true,
           },
         ],
       },
     });
 
+    expect(screen.getByRole('button', { name: '收起过程' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('检索工单与物流状态')).toBeInTheDocument();
   });
 });
