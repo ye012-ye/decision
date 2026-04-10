@@ -1,19 +1,14 @@
 import { defineStore } from 'pinia';
 
 import { streamChat } from '@/api/chat';
+import type { ChatAssistantMessage, ChatMessage, ChatProcessType } from '@/types/chat';
 import { createTicket } from '@/api/tickets';
 import { extractOrderNo } from '@/utils/extractors';
-
-interface TimelineEvent {
-  id: string;
-  type: string;
-  content: string;
-}
 
 interface SessionState {
   id: string;
   title: string;
-  events: TimelineEvent[];
+  messages: ChatMessage[];
   context: WorkspaceContext;
 }
 
@@ -26,12 +21,23 @@ function createSession(title: string): SessionState {
   return {
     id: crypto.randomUUID(),
     title,
-    events: [],
+    messages: [],
     context: {
       ticketOrderNo: '',
       activeTab: 'ticket',
     },
   };
+}
+
+const FALLBACK_ASSISTANT_MESSAGE = '暂未获取到回复，请稍后重试。';
+const FALLBACK_ASSISTANT_ERROR_MESSAGE = '请求失败，请稍后重试。';
+
+function appendProcessEntry(message: ChatAssistantMessage, type: ChatProcessType, content: string) {
+  message.process.push({
+    id: crypto.randomUUID(),
+    type,
+    content,
+  });
 }
 
 export const useWorkspaceStore = defineStore('workspace', {
@@ -54,16 +60,56 @@ export const useWorkspaceStore = defineStore('workspace', {
     activateSession(sessionId: string) {
       this.activeSessionId = sessionId;
     },
+    toggleProcess(messageId: string) {
+      this.bootstrap();
+      const session = this.activeSession;
+      const message = session.messages.find((item) => item.id === messageId && item.role === 'assistant');
+      if (!message || message.role !== 'assistant') {
+        return;
+      }
+
+      message.processExpanded = !message.processExpanded;
+    },
     async sendMessage(message: string) {
       this.bootstrap();
       this.sending = true;
       const session = this.activeSession;
-
-      session.events.push({
+      const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        type: 'user',
+        role: 'user',
         content: message,
-      });
+      };
+      const assistantMessage: ChatAssistantMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        process: [],
+        processExpanded: false,
+      };
+
+      session.messages.push(userMessage, assistantMessage);
+      const assistantMessageId = assistantMessage.id;
+      const withAssistantMessage = (apply: (target: ChatAssistantMessage) => void) => {
+        const target = session.messages.find(
+          (item): item is ChatAssistantMessage => item.id === assistantMessageId && item.role === 'assistant'
+        );
+        if (!target) {
+          return;
+        }
+
+        apply(target);
+      };
+
+      const updateTicketContextFromText = (text: string) => {
+        const matchedOrderNo = extractOrderNo(text);
+        if (!matchedOrderNo) {
+          return;
+        }
+
+        session.context.ticketOrderNo = matchedOrderNo;
+        session.context.activeTab = 'ticket';
+      };
 
       try {
         await streamChat(
@@ -72,19 +118,56 @@ export const useWorkspaceStore = defineStore('workspace', {
             message,
           },
           (event) => {
-            session.events.push({
-              id: crypto.randomUUID(),
-              type: event.event,
-              content: event.data,
+            withAssistantMessage((target) => {
+              if (event.event === 'answer') {
+                target.content += event.data;
+                updateTicketContextFromText(target.content);
+              } else if (
+                event.event === 'thought' ||
+                event.event === 'action' ||
+                event.event === 'observation'
+              ) {
+                appendProcessEntry(target, event.event, event.data);
+              } else if (event.event === 'done') {
+                if (target.status === 'streaming') {
+                  target.status = 'done';
+                }
+              } else if (event.event === 'error') {
+                target.status = 'error';
+                target.processExpanded = true;
+                const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+                if (!target.content.trim()) {
+                  target.content = errorText;
+                } else {
+                  target.content += `\n${errorText}`;
+                }
+              }
             });
 
-            const matchedOrderNo = extractOrderNo(event.data);
-            if (matchedOrderNo) {
-              session.context.ticketOrderNo = matchedOrderNo;
-              session.context.activeTab = 'ticket';
-            }
+            updateTicketContextFromText(event.data);
           }
         );
+        withAssistantMessage((target) => {
+          if (!target.content.trim() && target.status !== 'error') {
+            target.content = FALLBACK_ASSISTANT_MESSAGE;
+          }
+          if (target.status === 'streaming') {
+            target.status = 'done';
+          }
+        });
+      } catch (error) {
+        withAssistantMessage((target) => {
+          target.status = 'error';
+          target.processExpanded = true;
+          const rawErrorText = error instanceof Error ? error.message.trim() : '';
+          const errorText = rawErrorText || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+          if (!target.content.trim()) {
+            target.content = errorText;
+          } else if (errorText) {
+            target.content += `\n${errorText}`;
+          }
+        });
+        throw error;
       } finally {
         this.sending = false;
       }

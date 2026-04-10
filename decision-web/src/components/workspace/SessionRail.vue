@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { ChatMessage } from '@/types/chat';
+
 defineProps<{
-  sessions: Array<{ id: string; title: string; events?: Array<unknown> }>;
+  sessions: Array<{ id: string; title: string; messages?: ChatMessage[] }>;
   activeSessionId: string;
 }>();
 
@@ -24,7 +26,7 @@ const emit = defineEmits<{ select: [sessionId: string] }>();
         @click="emit('select', session.id)"
       >
         <span class="session-rail__title">{{ session.title }}</span>
-        <span class="session-rail__meta">{{ session.events?.length ?? 0 }} 条记录</span>
+        <span class="session-rail__meta">{{ session.messages?.length ?? 0 }} 条记录</span>
       </button>
     </div>
   </aside>
