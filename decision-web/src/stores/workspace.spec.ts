@@ -1,11 +1,12 @@
 import { setActivePinia, createPinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatAssistantMessage, ChatMessage } from '@/types/chat';
+import type { ChatAssistantMessage, ChatMessage, ChatStreamEvent } from '@/types/chat';
 
 let resumeStream: (() => void) | null = null;
+let streamScenario: (onEvent: (event: ChatStreamEvent) => void) => Promise<void> = async () => {};
 
-vi.mock('@/api/chat', () => ({
-  streamChat: vi.fn(async (_req, onEvent) => {
+function createDefaultScenario() {
+  return async (onEvent: (event: ChatStreamEvent) => void) => {
     onEvent({ event: 'thought', data: '需要查询物流' });
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, 0);
@@ -19,7 +20,11 @@ vi.mock('@/api/chat', () => ({
     onEvent({ event: 'answer', data: '物流已更新，' });
     onEvent({ event: 'answer', data: '已创建工单 WO20260409001' });
     onEvent({ event: 'done', data: '[DONE]' });
-  }),
+  };
+}
+
+vi.mock('@/api/chat', () => ({
+  streamChat: vi.fn(async (_req, onEvent) => streamScenario(onEvent)),
 }));
 
 vi.mock('@/api/tickets', () => ({
@@ -45,6 +50,7 @@ describe('workspace store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     resumeStream = null;
+    streamScenario = createDefaultScenario();
   });
 
   it('sending creates one user message and one assistant message per streamed turn', async () => {
@@ -154,5 +160,63 @@ describe('workspace store', () => {
     expect(store.sessions[1].context.ticketOrderNo).toBe('WO20260409099');
     expect(originalSession.context.ticketOrderNo).toBe('');
     expect(store.activeSession.context.ticketOrderNo).toBe('');
+  });
+
+  it('marks assistant message as error with visible text when stream request throws', async () => {
+    streamScenario = async () => {
+      throw new Error('上游连接失败');
+    };
+
+    const store = useWorkspaceStore();
+    await expect(store.sendMessage('客户投诉物流慢')).rejects.toThrow('上游连接失败');
+
+    expect(store.activeSession.messages).toHaveLength(2);
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.status).toBe('error');
+    expect(assistantMessage.content).toContain('上游连接失败');
+    expect(assistantMessage.processExpanded).toBe(true);
+  });
+
+  it('shows SSE error event text in assistant message content', async () => {
+    streamScenario = async (onEvent) => {
+      onEvent({ event: 'error', data: '工具调用失败: logistics timeout' });
+    };
+
+    const store = useWorkspaceStore();
+    await store.sendMessage('客户投诉物流慢');
+
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.status).toBe('error');
+    expect(assistantMessage.content).toContain('工具调用失败');
+    expect(assistantMessage.processExpanded).toBe(true);
+  });
+
+  it('extracts order number from accumulated answer chunks', async () => {
+    streamScenario = async (onEvent) => {
+      onEvent({ event: 'answer', data: '已创建工单 WO20260409' });
+      onEvent({ event: 'answer', data: '001，请注意查收' });
+      onEvent({ event: 'done', data: '[DONE]' });
+    };
+
+    const store = useWorkspaceStore();
+    await store.sendMessage('客户投诉物流慢');
+
+    expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.content).toBe('已创建工单 WO20260409001，请注意查收');
+  });
+
+  it('uses fallback assistant text when stream completes without answer content', async () => {
+    streamScenario = async (onEvent) => {
+      onEvent({ event: 'thought', data: '正在分析问题' });
+      onEvent({ event: 'done', data: '[DONE]' });
+    };
+
+    const store = useWorkspaceStore();
+    await store.sendMessage('客户投诉物流慢');
+
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.status).toBe('done');
+    expect(assistantMessage.content).toBe('暂未获取到回复，请稍后重试。');
   });
 });

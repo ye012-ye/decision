@@ -30,6 +30,7 @@ function createSession(title: string): SessionState {
 }
 
 const FALLBACK_ASSISTANT_MESSAGE = '暂未获取到回复，请稍后重试。';
+const FALLBACK_ASSISTANT_ERROR_MESSAGE = '请求失败，请稍后重试。';
 
 function appendProcessEntry(message: ChatAssistantMessage, type: ChatProcessType, content: string) {
   message.process.push({
@@ -88,6 +89,15 @@ export const useWorkspaceStore = defineStore('workspace', {
       };
 
       session.messages.push(userMessage, assistantMessage);
+      const updateTicketContextFromText = (text: string) => {
+        const matchedOrderNo = extractOrderNo(text);
+        if (!matchedOrderNo) {
+          return;
+        }
+
+        session.context.ticketOrderNo = matchedOrderNo;
+        session.context.activeTab = 'ticket';
+      };
 
       try {
         await streamChat(
@@ -98,6 +108,7 @@ export const useWorkspaceStore = defineStore('workspace', {
           (event) => {
             if (event.event === 'answer') {
               assistantMessage.content += event.data;
+              updateTicketContextFromText(assistantMessage.content);
             } else if (
               event.event === 'thought' ||
               event.event === 'action' ||
@@ -105,25 +116,40 @@ export const useWorkspaceStore = defineStore('workspace', {
             ) {
               appendProcessEntry(assistantMessage, event.event, event.data);
             } else if (event.event === 'done') {
-              assistantMessage.status = 'done';
+              if (assistantMessage.status === 'streaming') {
+                assistantMessage.status = 'done';
+              }
             } else if (event.event === 'error') {
               assistantMessage.status = 'error';
               assistantMessage.processExpanded = true;
+              const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+              if (!assistantMessage.content.trim()) {
+                assistantMessage.content = errorText;
+              } else {
+                assistantMessage.content += `\n${errorText}`;
+              }
             }
 
-            const matchedOrderNo = extractOrderNo(event.data);
-            if (matchedOrderNo) {
-              session.context.ticketOrderNo = matchedOrderNo;
-              session.context.activeTab = 'ticket';
-            }
+            updateTicketContextFromText(event.data);
           }
         );
+        if (!assistantMessage.content.trim() && assistantMessage.status !== 'error') {
+          assistantMessage.content = FALLBACK_ASSISTANT_MESSAGE;
+        }
         if (assistantMessage.status === 'streaming') {
-          if (!assistantMessage.content.trim()) {
-            assistantMessage.content = FALLBACK_ASSISTANT_MESSAGE;
-          }
           assistantMessage.status = 'done';
         }
+      } catch (error) {
+        assistantMessage.status = 'error';
+        assistantMessage.processExpanded = true;
+        const rawErrorText = error instanceof Error ? error.message.trim() : '';
+        const errorText = rawErrorText || FALLBACK_ASSISTANT_ERROR_MESSAGE;
+        if (!assistantMessage.content.trim()) {
+          assistantMessage.content = errorText;
+        } else if (errorText) {
+          assistantMessage.content += `\n${errorText}`;
+        }
+        throw error;
       } finally {
         this.sending = false;
       }
