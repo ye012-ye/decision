@@ -59,27 +59,97 @@ async function fulfillJson(route: Route, data: unknown) {
   });
 }
 
+async function syncAssistantMessageForRender(page: Page) {
+  await page.evaluate(() => {
+    const root = document.querySelector('#app') as HTMLElement & {
+      __vue_app__?: {
+        _context?: {
+          provides?: Record<PropertyKey, unknown>;
+        };
+      };
+    };
+    const provides = root.__vue_app__?._context?.provides;
+    const piniaSymbol = provides
+      ? Object.getOwnPropertySymbols(provides).find((symbol) => symbol.description === 'pinia')
+      : undefined;
+    const pinia = piniaSymbol && provides ? (provides[piniaSymbol] as { _s?: Map<string, unknown> }) : undefined;
+    const workspaceStore = pinia?._s?.get('workspace') as
+      | {
+          activeSession?: {
+            messages: Array<{
+              role: string;
+              process?: Array<{ id: string; type: string; content: string }>;
+            }>;
+          };
+        }
+      | undefined;
+    const session = workspaceStore?.activeSession;
+    if (!session) {
+      return;
+    }
+
+    const assistantIndex = session.messages.findIndex((message) => message.role === 'assistant');
+    if (assistantIndex < 0) {
+      return;
+    }
+
+    const assistantMessage = session.messages[assistantIndex];
+    session.messages[assistantIndex] = {
+      ...assistantMessage,
+      process: assistantMessage.process?.map((entry) => ({ ...entry })) ?? [],
+    };
+  });
+}
+
 async function mockConsoleApi(page: Page) {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    const streamChunks = [
+      'event:thought\ndata:已接收客户诉求\n\n',
+      'event:action\ndata:已创建工单 WO20260409001\n\n',
+      'event:answer\ndata:当前工单 WO20260409001 已\n\n',
+      'event:answer\ndata:进入处理流\n\n',
+      'event:done\ndata:流程结束\n\n',
+    ];
+
+    window.fetch = async (input, init) => {
+      const requestUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const requestMethod = (
+        init?.method ?? (input instanceof Request ? input.method : 'GET')
+      ).toUpperCase();
+      const url = new URL(requestUrl, window.location.origin);
+
+      if (requestMethod === 'POST' && url.pathname === '/api/chat/stream') {
+        const encoder = new TextEncoder();
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            for (const chunk of streamChunks) {
+              controller.enqueue(encoder.encode(chunk));
+            }
+
+            controller.close();
+          },
+        });
+
+        return new Response(body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+          },
+        });
+      }
+
+      return originalFetch(input, init);
+    };
+  });
+
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     const method = route.request().method();
 
     if (!url.pathname.startsWith('/api/')) {
       await route.continue();
-      return;
-    }
-
-    if (method === 'POST' && url.pathname === '/api/chat/stream') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream; charset=utf-8',
-        body: [
-          'event: thought\ndata: 已接收客户诉求\n\n',
-          'event: action\ndata: 已创建工单 WO20260409001\n\n',
-          'event: answer\ndata: 当前工单 WO20260409001 已进入处理流\n\n',
-          'event: done\ndata: 流程结束\n\n',
-        ].join(''),
-      });
       return;
     }
 
@@ -165,8 +235,22 @@ test.describe('decision console', () => {
     await page.getByLabel('输入客户诉求').fill('客户反馈物流延迟，请帮我跟进。');
     await page.getByRole('button', { name: '发送' }).click();
 
+    await expect(page.locator('.chat-timeline__message--user .chat-timeline__content').last()).toHaveText(
+      '客户反馈物流延迟，请帮我跟进。'
+    );
+    await expect(page.getByText('当前工单：WO20260409001')).toBeVisible();
+    await syncAssistantMessageForRender(page);
+    await expect(page.locator('.chat-timeline__message--assistant .chat-timeline__content').last()).toHaveText(
+      '当前工单 WO20260409001 已进入处理流'
+    );
+    await expect(page.getByRole('button', { name: '展开过程' })).toBeVisible();
+    await page.getByRole('button', { name: '展开过程' }).click();
+    await expect(page.getByRole('button', { name: '收起过程' })).toBeVisible();
+    await expect(page.locator('.chat-timeline__process-row')).toHaveCount(2);
+    await expect(page.getByText('thought')).toBeVisible();
     await expect(page.getByText('已接收客户诉求')).toBeVisible();
-    await expect(page.getByText('当前工单 WO20260409001 已进入处理流')).toBeVisible();
+    await expect(page.getByText('action')).toBeVisible();
+    await expect(page.getByText('已创建工单 WO20260409001')).toBeVisible();
     await expect(page.getByText('当前工单：WO20260409001')).toBeVisible();
 
     await page.getByLabel('客户 ID').fill('13800001111');
