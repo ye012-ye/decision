@@ -1,5 +1,6 @@
 import { setActivePinia, createPinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChatAssistantMessage, ChatMessage } from '@/types/chat';
 
 let resumeStream: (() => void) | null = null;
 
@@ -35,6 +36,11 @@ vi.mock('@/api/tickets', () => ({
 
 import { useWorkspaceStore } from './workspace';
 
+function asAssistantMessage(message: ChatMessage | undefined): ChatAssistantMessage {
+  expect(message?.role).toBe('assistant');
+  return message as ChatAssistantMessage;
+}
+
 describe('workspace store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -48,8 +54,8 @@ describe('workspace store', () => {
     expect(store.activeSession.messages).toHaveLength(2);
     expect(store.activeSession.messages[0]?.role).toBe('user');
     expect(store.activeSession.messages[0]?.content).toBe('客户投诉物流慢');
-    expect(store.activeSession.messages[1]?.role).toBe('assistant');
-    expect(store.activeSession.messages[1]?.status).toBe('done');
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.status).toBe('done');
     expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
   });
 
@@ -57,23 +63,21 @@ describe('workspace store', () => {
     const store = useWorkspaceStore();
     await store.sendMessage('客户投诉物流慢');
 
-    const assistantMessage = store.activeSession.messages[1];
-    expect(assistantMessage?.role).toBe('assistant');
-    expect(assistantMessage?.content).toBe('物流已更新，已创建工单 WO20260409001');
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.content).toBe('物流已更新，已创建工单 WO20260409001');
   });
 
   it('process entries collect under that assistant message', async () => {
     const store = useWorkspaceStore();
     await store.sendMessage('客户投诉物流慢');
 
-    const assistantMessage = store.activeSession.messages[1];
-    expect(assistantMessage?.role).toBe('assistant');
-    expect(assistantMessage?.process.map((entry) => entry.type)).toEqual([
+    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
+    expect(assistantMessage.process.map((entry) => entry.type)).toEqual([
       'thought',
       'action',
       'observation',
     ]);
-    expect(assistantMessage?.process.map((entry) => entry.content)).toEqual([
+    expect(assistantMessage.process.map((entry) => entry.content)).toEqual([
       '需要查询物流',
       'callExternalApiTool | {"service":"logistics"}',
       '查询到物流延迟 2 天',
@@ -106,8 +110,8 @@ describe('workspace store', () => {
 
     expect(originalSession.messages).toHaveLength(2);
     expect(originalSession.messages[0]?.role).toBe('user');
-    expect(originalSession.messages[1]?.role).toBe('assistant');
-    expect(originalSession.messages[1]?.content).toBe('物流已更新，已创建工单 WO20260409001');
+    const assistantMessage = asAssistantMessage(originalSession.messages[1]);
+    expect(assistantMessage.content).toBe('物流已更新，已创建工单 WO20260409001');
     expect(store.sessions[1].messages).toHaveLength(0);
     expect(store.activeSessionId).toBe(store.sessions[1].id);
     expect(originalSessionId).toBe(originalSession.id);
