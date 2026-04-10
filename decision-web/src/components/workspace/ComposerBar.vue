@@ -5,6 +5,7 @@ const props = defineProps<{ busy: boolean }>();
 const emit = defineEmits<{ submit: [message: string] }>();
 
 const value = ref('');
+const helperId = 'composer-helper-text';
 
 function submit() {
   const message = value.value.trim();
@@ -26,10 +27,11 @@ function submit() {
         class="composer__input"
         rows="3"
         placeholder="输入客户诉求或问题..."
+        :aria-describedby="helperId"
       />
     </label>
     <div class="composer__footer">
-      <p class="composer__helper" role="status" aria-live="polite">
+      <p :id="helperId" class="composer__helper" role="status" aria-live="polite">
         {{ busy ? '正在整理回复，请稍候…' : '发送后将以流式方式持续返回结果' }}
       </p>
       <button class="composer__button" :disabled="busy" type="submit">

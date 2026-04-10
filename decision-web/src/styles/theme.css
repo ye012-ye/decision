@@ -268,6 +268,7 @@ button:disabled {
 .chat-timeline {
   position: relative;
   display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   gap: 14px;
   min-height: 0;
@@ -307,7 +308,17 @@ button:disabled {
 }
 
 .chat-timeline__message {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.chat-timeline__message--user {
+  align-items: flex-end;
+}
+
+.chat-timeline__message--assistant {
+  align-items: flex-start;
 }
 
 .chat-timeline__message .chat-timeline__bubble {
@@ -377,6 +388,8 @@ button:disabled {
 }
 
 .chat-timeline__process-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: baseline;
   column-gap: 8px;
 }
