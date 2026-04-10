@@ -1,31 +1,32 @@
 import { fireEvent, render, screen } from '@testing-library/vue';
 import { describe, expect, it } from 'vitest';
 
-import type { ChatMessage } from '@/types/chat';
+import type { ChatAssistantMessage, ChatMessage, ChatUserMessage } from '@/types/chat';
 
 import ChatTimeline from './ChatTimeline.vue';
 
-const baseMessages: ChatMessage[] = [
-  {
-    id: 'user-1',
-    role: 'user',
-    content: '客户投诉物流慢',
-  },
-  {
-    id: 'assistant-1',
-    role: 'assistant',
-    content: '我先帮你查一下',
-    status: 'done',
-    process: [
-      {
-        id: 'process-1',
-        type: 'thought',
-        content: '检索工单与物流状态',
-      },
-    ],
-    processExpanded: false,
-  },
-];
+const baseUserMessage: ChatUserMessage = {
+  id: 'user-1',
+  role: 'user',
+  content: '客户投诉物流慢',
+};
+
+const baseAssistantMessage: ChatAssistantMessage = {
+  id: 'assistant-1',
+  role: 'assistant',
+  content: '我先帮你查一下',
+  status: 'done',
+  process: [
+    {
+      id: 'process-1',
+      type: 'thought',
+      content: '检索工单与物流状态',
+    },
+  ],
+  processExpanded: false,
+};
+
+const baseMessages: ChatMessage[] = [baseUserMessage, baseAssistantMessage];
 
 describe('ChatTimeline', () => {
   it('renders user and assistant messages as primary bubbles', () => {
@@ -70,9 +71,9 @@ describe('ChatTimeline', () => {
 
     await rerender({
       messages: [
-        baseMessages[0],
+        baseUserMessage,
         {
-          ...baseMessages[1],
+          ...baseAssistantMessage,
           processExpanded: true,
         },
       ],
@@ -85,9 +86,9 @@ describe('ChatTimeline', () => {
     render(ChatTimeline, {
       props: {
         messages: [
-          baseMessages[0],
+          baseUserMessage,
           {
-            ...baseMessages[1],
+            ...baseAssistantMessage,
             id: 'assistant-err-1',
             status: 'error',
             processExpanded: false,
