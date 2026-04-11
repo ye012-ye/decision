@@ -84,8 +84,9 @@ watch(
       class="chat-timeline__message"
       :class="`chat-timeline__message--${message.role}`"
       :data-message-id="message.id"
+      :data-testid="`chat-message-${message.role}`"
     >
-      <div class="chat-timeline__bubble">
+      <div class="chat-timeline__bubble" :data-testid="`chat-bubble-${message.id}`">
         <p class="chat-timeline__meta">
           <span>{{ message.role === 'assistant' ? 'assistant' : 'user' }}</span>
           <span v-if="isAssistantMessage(message) && message.status === 'streaming'">生成中</span>

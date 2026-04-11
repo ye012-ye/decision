@@ -30,7 +30,7 @@ const baseMessages: ChatMessage[] = [baseUserMessage, baseAssistantMessage];
 
 describe('ChatTimeline', () => {
   it('renders user and assistant messages as primary bubbles', () => {
-    const { container } = render(ChatTimeline, {
+    render(ChatTimeline, {
       props: {
         messages: baseMessages,
       },
@@ -38,10 +38,8 @@ describe('ChatTimeline', () => {
 
     expect(screen.getByText('客户投诉物流慢')).toBeInTheDocument();
     expect(screen.getByText('我先帮你查一下')).toBeInTheDocument();
-    expect(container.querySelector('[data-message-id="user-1"] .chat-timeline__bubble')).toBeInTheDocument();
-    expect(
-      container.querySelector('[data-message-id="assistant-1"] .chat-timeline__bubble')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('chat-bubble-user-1')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-bubble-assistant-1')).toBeInTheDocument();
   });
 
   it('shows collapsed process disclosure for assistant process entries and emits id on click', async () => {

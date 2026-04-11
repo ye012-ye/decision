@@ -19,6 +19,8 @@ describe('ComposerBar', () => {
     );
     expect(screen.getByText('发送后将以流式方式持续返回结果')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '发送' })).toBeInTheDocument();
+    expect(screen.getByTestId('composer-input')).toBeInTheDocument();
+    expect(screen.getByTestId('composer-submit')).toBeInTheDocument();
   });
 
   it('shows busy helper and busy button label', () => {
