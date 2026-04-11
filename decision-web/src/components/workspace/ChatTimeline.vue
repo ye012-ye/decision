@@ -111,7 +111,7 @@ watch(
           :id="processListId(message.id)"
           class="chat-timeline__process-list"
         >
-          <li v-for="entry in message.process" :key="entry.id" class="chat-timeline__process-row">
+          <li v-for="entry in message.process" :key="entry.id" class="chat-timeline__process-row" data-testid="chat-process-row">
             <span class="chat-timeline__process-type">{{ entry.type }}</span>
             <span class="chat-timeline__process-content">{{ entry.content }}</span>
           </li>

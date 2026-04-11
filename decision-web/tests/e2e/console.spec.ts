@@ -166,17 +166,17 @@ test.describe('decision console', () => {
     await page.getByLabel('输入客户诉求').fill('客户反馈物流延迟，请帮我跟进。');
     await page.getByRole('button', { name: '发送' }).click();
 
-    await expect(page.locator('.chat-timeline__message--user .chat-timeline__content').last()).toHaveText(
-      '客户反馈物流延迟，请帮我跟进。'
-    );
+    await expect(
+      page.getByTestId('chat-message-user').last().locator('[data-testid^="chat-bubble-"] p').last()
+    ).toHaveText('客户反馈物流延迟，请帮我跟进。');
     await expect(page.getByText('当前工单：WO20260409001')).toBeVisible();
-    await expect(page.locator('.chat-timeline__message--assistant .chat-timeline__content').last()).toHaveText(
-      '当前工单 WO20260409001 已进入处理流'
-    );
+    await expect(
+      page.getByTestId('chat-message-assistant').last().locator('[data-testid^="chat-bubble-"] p').last()
+    ).toHaveText('当前工单 WO20260409001 已进入处理流');
     await expect(page.getByRole('button', { name: '展开过程' })).toBeVisible();
     await page.getByRole('button', { name: '展开过程' }).click();
     await expect(page.getByRole('button', { name: '收起过程' })).toBeVisible();
-    await expect(page.locator('.chat-timeline__process-row')).toHaveCount(2);
+    await expect(page.getByTestId('chat-process-row')).toHaveCount(2);
     await expect(page.getByText('thought')).toBeVisible();
     await expect(page.getByText('已接收客户诉求')).toBeVisible();
     await expect(page.getByText('action')).toBeVisible();
