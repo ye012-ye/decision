@@ -167,11 +167,11 @@ test.describe('decision console', () => {
     await page.getByRole('button', { name: '发送' }).click();
 
     await expect(
-      page.getByTestId('chat-message-user').last().locator('[data-testid^="chat-bubble-"] p').last()
+      page.getByTestId('chat-message-user').last().getByTestId('chat-message-content')
     ).toHaveText('客户反馈物流延迟，请帮我跟进。');
     await expect(page.getByText('当前工单：WO20260409001')).toBeVisible();
     await expect(
-      page.getByTestId('chat-message-assistant').last().locator('[data-testid^="chat-bubble-"] p').last()
+      page.getByTestId('chat-message-assistant').last().getByTestId('chat-message-content')
     ).toHaveText('当前工单 WO20260409001 已进入处理流');
     await expect(page.getByRole('button', { name: '展开过程' })).toBeVisible();
     await page.getByRole('button', { name: '展开过程' }).click();

@@ -92,7 +92,7 @@ watch(
           <span v-if="isAssistantMessage(message) && message.status === 'streaming'">生成中</span>
           <span v-else-if="isAssistantMessage(message) && message.status === 'error'">出错</span>
         </p>
-        <p class="chat-timeline__content">{{ message.content }}</p>
+        <p class="chat-timeline__content" data-testid="chat-message-content">{{ message.content }}</p>
       </div>
 
       <template v-if="isAssistantMessage(message) && hasProcessEntries(message)">
