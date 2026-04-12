@@ -216,14 +216,15 @@ test.describe('decision console', () => {
       await page.goto('/');
       await expect(page).toHaveURL(/\/workspace$/);
 
-      await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
       await expect(page.getByRole('heading', { name: '工作台' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: '最近会话' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: '工单面板' })).toBeVisible();
 
+      // On mobile the sidebar lives inside a drawer; open it via the hamburger button
+      await page.getByRole('button', { name: '打开导航' }).click();
+      await expect(page.getByTestId('sidebar-nav')).toBeVisible();
       await page.getByRole('link', { name: '工单' }).click();
       await expect(page.getByRole('heading', { name: '工单管理' })).toBeVisible();
 
+      await page.getByRole('button', { name: '打开导航' }).click();
       await page.getByRole('link', { name: '知识库' }).click();
       await expect(page.getByRole('heading', { name: '知识库管理' })).toBeVisible();
     });

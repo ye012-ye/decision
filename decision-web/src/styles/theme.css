@@ -547,6 +547,12 @@ button:disabled {
   gap: 12px;
 }
 
+@media (max-width: 1440px) {
+  .workspace {
+    grid-template-columns: 272px minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;

@@ -72,7 +72,7 @@
   color: var(--color-text);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1440px) {
   .workspace {
     grid-template-columns: 272px minmax(0, 1fr);
   }
