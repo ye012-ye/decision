@@ -45,6 +45,7 @@ export const useWorkspaceStore = defineStore('workspace', {
     sessions: [createSession('新会话')],
     activeSessionId: '',
     sending: false,
+    abortController: null as AbortController | null,
   }),
   getters: {
     activeSession(state) {
@@ -72,6 +73,9 @@ export const useWorkspaceStore = defineStore('workspace', {
     },
     async sendMessage(message: string) {
       this.bootstrap();
+      this.abortController?.abort();
+      const controller = new AbortController();
+      this.abortController = controller;
       this.sending = true;
       const session = this.activeSession;
       const userMessage: ChatMessage = {
@@ -145,7 +149,8 @@ export const useWorkspaceStore = defineStore('workspace', {
             });
 
             updateTicketContextFromText(event.data);
-          }
+          },
+          controller.signal,
         );
         withAssistantMessage((target) => {
           if (!target.content.trim() && target.status !== 'error') {
@@ -156,7 +161,13 @@ export const useWorkspaceStore = defineStore('workspace', {
           }
         });
       } catch (error) {
+        const aborted = error instanceof DOMException && error.name === 'AbortError';
         withAssistantMessage((target) => {
+          if (aborted) {
+            target.status = 'done';
+            if (!target.content.trim()) target.content = '（已停止）';
+            return;
+          }
           target.status = 'error';
           target.processExpanded = true;
           const rawErrorText = error instanceof Error ? error.message.trim() : '';
@@ -167,13 +178,14 @@ export const useWorkspaceStore = defineStore('workspace', {
             target.content += `\n${errorText}`;
           }
         });
-        throw error;
+        if (!aborted) throw error;
       } finally {
         this.sending = false;
+        this.abortController = null;
       }
     },
     stopStreaming() {
-      // placeholder; full implementation lands in Task 19
+      this.abortController?.abort();
     },
     async createTicketFromContext(payload: {
       type: 'ORDER' | 'LOGISTICS' | 'ACCOUNT' | 'TECH_FAULT' | 'CONSULTATION' | 'OTHER';

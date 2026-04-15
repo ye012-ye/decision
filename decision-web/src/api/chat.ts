@@ -1,7 +1,11 @@
 import type { ChatRequest, ChatStreamEvent } from '@/types/chat';
 import { parseSseChunk } from '@/utils/sse';
 
-export async function streamChat(request: ChatRequest, onEvent: (event: ChatStreamEvent) => void) {
+export async function streamChat(
+  request: ChatRequest,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+) {
   const response = await fetch('/api/chat/stream', {
     method: 'POST',
     headers: {
@@ -9,6 +13,7 @@ export async function streamChat(request: ChatRequest, onEvent: (event: ChatStre
       Accept: 'text/event-stream',
     },
     body: JSON.stringify(request),
+    signal,
   });
 
   if (!response.ok || !response.body) {
