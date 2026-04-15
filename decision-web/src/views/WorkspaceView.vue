@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { NTag } from 'naive-ui';
 
 import ChatTimeline from '@/components/workspace/ChatTimeline.vue';
 import ComposerBar from '@/components/workspace/ComposerBar.vue';
@@ -12,6 +13,10 @@ const store = useWorkspaceStore();
 onMounted(() => {
   store.bootstrap();
 });
+
+function onCreateSession() {
+  window.$message?.info('新建会话（占位）');
+}
 </script>
 
 <template>
@@ -20,6 +25,7 @@ onMounted(() => {
       :sessions="store.sessions"
       :active-session-id="store.activeSessionId"
       @select="store.activateSession"
+      @create="onCreateSession"
     />
 
     <div class="workspace__center">
@@ -28,15 +34,30 @@ onMounted(() => {
           <p class="page__eyebrow">智能客服</p>
           <h1>工作台</h1>
         </div>
-        <p class="workspace__status" :data-busy="store.sending" role="status" aria-live="polite">
+        <NTag
+          :type="store.sending ? 'warning' : 'success'"
+          :bordered="false"
+          round
+        >
           {{ store.sending ? '正在生成回复' : '等待新指令' }}
-        </p>
+        </NTag>
       </header>
 
-      <ChatTimeline :messages="store.activeSession.messages" @suggest="store.sendMessage" />
-      <ComposerBar :busy="store.sending" @submit="store.sendMessage" />
+      <ChatTimeline
+        :messages="store.activeSession.messages"
+        @suggest="store.sendMessage"
+      />
+
+      <ComposerBar
+        :busy="store.sending"
+        @submit="store.sendMessage"
+        @stop="store.stopStreaming"
+      />
     </div>
 
-    <ContextPanel :context="store.activeSession.context" @create="store.createTicketFromContext" />
+    <ContextPanel
+      :context="store.activeSession.context"
+      @create="store.createTicketFromContext"
+    />
   </section>
 </template>

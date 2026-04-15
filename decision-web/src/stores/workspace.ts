@@ -172,6 +172,9 @@ export const useWorkspaceStore = defineStore('workspace', {
         this.sending = false;
       }
     },
+    stopStreaming() {
+      // placeholder; full implementation lands in Task 19
+    },
     async createTicketFromContext(payload: {
       type: 'ORDER' | 'LOGISTICS' | 'ACCOUNT' | 'TECH_FAULT' | 'CONSULTATION' | 'OTHER';
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';

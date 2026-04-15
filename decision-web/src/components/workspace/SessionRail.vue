@@ -39,12 +39,13 @@ function renderIcon(icon: unknown) {
 <template>
   <aside class="session-rail" data-testid="session-rail">
     <header class="session-rail__header">
-      <NInput v-model:value="query" placeholder="搜索会话" size="small" clearable>
-        <template #prefix><NIcon :component="SearchIcon" /></template>
-      </NInput>
+      <h3 class="session-rail__heading">最近会话</h3>
       <NButton type="primary" size="small" :render-icon="renderIcon(AddIcon)" @click="emit('create')">
         新建
       </NButton>
+      <NInput v-model:value="query" placeholder="搜索会话" size="small" clearable class="session-rail__search">
+        <template #prefix><NIcon :component="SearchIcon" /></template>
+      </NInput>
     </header>
 
     <NScrollbar class="session-rail__scroll">
@@ -95,6 +96,16 @@ function renderIcon(icon: unknown) {
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-2);
+  align-items: center;
+}
+.session-rail__heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.session-rail__search {
+  grid-column: 1 / -1;
 }
 .session-rail__scroll {
   flex: 1 1 auto;

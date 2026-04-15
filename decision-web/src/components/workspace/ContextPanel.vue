@@ -51,14 +51,12 @@ async function submit() {
     :bordered="true"
     content-style="padding: 20px 22px;"
   >
-    <template #header>
-      <div class="context-panel__header">
-        <span>上下文</span>
-        <NTag size="small" :type="context.activeTab === 'ticket' ? 'success' : 'default'" :bordered="false">
-          {{ context.activeTab }}
-        </NTag>
-      </div>
-    </template>
+    <div class="context-panel__header">
+      <h3 class="context-panel__title">工单面板</h3>
+      <NTag size="small" :type="context.activeTab === 'ticket' ? 'success' : 'default'" :bordered="false">
+        {{ context.activeTab }}
+      </NTag>
+    </div>
 
     <p v-if="context.ticketOrderNo" class="context-panel__order">
       当前工单：<strong>{{ context.ticketOrderNo }}</strong>
@@ -67,10 +65,18 @@ async function submit() {
 
     <NForm label-placement="top" :show-require-mark="false">
       <NFormItem label="客户 ID">
-        <NInput v-model:value="draft.customerId" placeholder="CUS-10086" />
+        <NInput
+          v-model:value="draft.customerId"
+          placeholder="CUS-10086"
+          :input-props="{ 'aria-label': '客户 ID' }"
+        />
       </NFormItem>
       <NFormItem label="工单标题">
-        <NInput v-model:value="draft.title" placeholder="物流异常跟进" />
+        <NInput
+          v-model:value="draft.title"
+          placeholder="物流异常跟进"
+          :input-props="{ 'aria-label': '工单标题' }"
+        />
       </NFormItem>
       <NFormItem label="工单描述">
         <NInput
@@ -78,6 +84,7 @@ async function submit() {
           type="textarea"
           :autosize="{ minRows: 4, maxRows: 8 }"
           placeholder="补充上下文、诉求和处理建议"
+          :input-props="{ 'aria-label': '工单描述' }"
         />
       </NFormItem>
 
@@ -104,6 +111,13 @@ async function submit() {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.context-panel__title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 700;
 }
 .context-panel__order {
