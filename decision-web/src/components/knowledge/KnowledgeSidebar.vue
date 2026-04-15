@@ -31,7 +31,7 @@ function statusLabel(status?: number) {
 
 <template>
   <aside class="knowledge-sidebar" data-testid="knowledge-sidebar">
-    <div class="workspace-panel__header">
+    <div class="knowledge-sidebar__header">
       <p class="knowledge-sidebar__eyebrow">知识库选择</p>
       <h2>库列表</h2>
     </div>
@@ -64,6 +64,11 @@ function statusLabel(status?: number) {
   border-radius: var(--radius-xl);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
+}
+
+.knowledge-sidebar__header {
+  display: grid;
+  gap: var(--space-1);
 }
 
 .knowledge-sidebar__eyebrow {
