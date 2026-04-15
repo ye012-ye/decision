@@ -1,81 +1,64 @@
 import { fireEvent, render, screen } from '@testing-library/vue';
 import { describe, expect, it } from 'vitest';
+import { createPinia } from 'pinia';
 
 import ComposerBar from './ComposerBar.vue';
 
-describe('ComposerBar', () => {
-  it('shows idle helper text, send button, and helper association for textarea', () => {
-    render(ComposerBar, {
-      props: {
-        busy: false,
-      },
-    });
+function mount(props: { busy: boolean }) {
+  return render(ComposerBar, { props, global: { plugins: [createPinia()] } });
+}
 
-    const input = screen.getByPlaceholderText('输入客户诉求或问题...');
-    expect(input).toHaveAttribute('aria-describedby', 'composer-helper-text');
-    expect(screen.getByText('发送后将以流式方式持续返回结果')).toHaveAttribute(
-      'id',
-      'composer-helper-text'
-    );
-    expect(screen.getByText('发送后将以流式方式持续返回结果')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '发送' })).toBeInTheDocument();
+describe('ComposerBar', () => {
+  it('renders send button and input when idle', () => {
+    mount({ busy: false });
     expect(screen.getByTestId('composer-input')).toBeInTheDocument();
     expect(screen.getByTestId('composer-submit')).toBeInTheDocument();
+    expect(screen.queryByTestId('composer-stop')).not.toBeInTheDocument();
   });
 
-  it('shows busy helper and busy button label', () => {
-    render(ComposerBar, {
-      props: {
-        busy: true,
-      },
-    });
-
-    const button = screen.getByRole('button', { name: '生成中…' });
-    expect(button).toBeDisabled();
-    expect(screen.getByText('正在整理回复，请稍候…')).toBeInTheDocument();
+  it('renders stop button and helper text when busy', () => {
+    mount({ busy: true });
+    expect(screen.getByText('正在整理回复…')).toBeInTheDocument();
+    expect(screen.getByTestId('composer-stop')).toBeInTheDocument();
+    expect(screen.queryByTestId('composer-submit')).not.toBeInTheDocument();
   });
 
-  it('emits trimmed message on submit and clears the field', async () => {
-    const view = render(ComposerBar, {
-      props: {
-        busy: false,
-      },
-    });
-
-    const input = screen.getByPlaceholderText('输入客户诉求或问题...');
-    await fireEvent.update(input, '  客户想改签收货时间  ');
-
-    await fireEvent.submit(screen.getByRole('button', { name: '发送' }));
-
-    expect(view.emitted('submit')).toEqual([['客户想改签收货时间']]);
-    expect(screen.getByPlaceholderText('输入客户诉求或问题...')).toHaveValue('');
+  it('emits trimmed message on click submit and clears field', async () => {
+    const view = mount({ busy: false });
+    const input = screen.getByTestId('composer-input').querySelector('textarea')!;
+    await fireEvent.update(input, '  客户想改签  ');
+    await fireEvent.click(screen.getByTestId('composer-submit'));
+    expect(view.emitted('submit')).toEqual([['客户想改签']]);
+    expect((screen.getByTestId('composer-input').querySelector('textarea')! as HTMLTextAreaElement).value).toBe('');
   });
 
-  it('does not emit submit for whitespace-only input', async () => {
-    const view = render(ComposerBar, {
-      props: {
-        busy: false,
-      },
-    });
-
-    const input = screen.getByPlaceholderText('输入客户诉求或问题...');
-    await fireEvent.update(input, '   ');
-    await fireEvent.click(screen.getByRole('button', { name: '发送' }));
-
-    expect(view.emitted('submit')).toBeUndefined();
-  });
-
-  it('does not emit submit while busy', async () => {
-    const view = render(ComposerBar, {
-      props: {
-        busy: true,
-      },
-    });
-
-    const input = screen.getByPlaceholderText('输入客户诉求或问题...');
+  it('emits submit on Enter without shift', async () => {
+    const view = mount({ busy: false });
+    const input = screen.getByTestId('composer-input').querySelector('textarea')!;
     await fireEvent.update(input, '请帮我处理退款');
-    await fireEvent.click(screen.getByRole('button', { name: '生成中…' }));
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    expect(view.emitted('submit')).toEqual([['请帮我处理退款']]);
+  });
 
+  it('does not emit submit on Shift+Enter', async () => {
+    const view = mount({ busy: false });
+    const input = screen.getByTestId('composer-input').querySelector('textarea')!;
+    await fireEvent.update(input, 'line1');
+    await fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
     expect(view.emitted('submit')).toBeUndefined();
+  });
+
+  it('does not emit submit for whitespace only', async () => {
+    const view = mount({ busy: false });
+    const input = screen.getByTestId('composer-input').querySelector('textarea')!;
+    await fireEvent.update(input, '   ');
+    await fireEvent.click(screen.getByTestId('composer-submit'));
+    expect(view.emitted('submit')).toBeUndefined();
+  });
+
+  it('emits stop when stop button clicked while busy', async () => {
+    const view = mount({ busy: true });
+    await fireEvent.click(screen.getByTestId('composer-stop'));
+    expect(view.emitted('stop')).toEqual([[]]);
   });
 });
