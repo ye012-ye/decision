@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NCollapse, NCollapseItem, NIcon, NTag } from 'naive-ui';
 
 import { BulbIcon, ToolIcon } from '@/theme/icons';
@@ -55,8 +55,17 @@ function parseAction(content: string): { toolName: string; args: string } {
 
 const stepCount = computed(() => steps.value.length);
 
-const expandedNames = computed<string[]>(() =>
-  props.message.status === 'streaming' || props.message.status === 'error' ? ['trace'] : []
+const localExpanded = ref<string[]>([]);
+
+// Auto-expand when streaming or errored; let user toggle freely otherwise
+watch(
+  () => props.message.status,
+  (status) => {
+    if (status === 'streaming' || status === 'error') {
+      localExpanded.value = ['trace'];
+    }
+  },
+  { immediate: true },
 );
 </script>
 
@@ -64,7 +73,7 @@ const expandedNames = computed<string[]>(() =>
   <NCollapse
     v-if="stepCount > 0"
     class="process-trace"
-    :expanded-names="expandedNames"
+    v-model:expanded-names="localExpanded"
     arrow-placement="left"
     data-testid="chat-process-trace"
   >

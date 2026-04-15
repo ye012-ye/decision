@@ -33,7 +33,7 @@ onMounted(() => {
         </p>
       </header>
 
-      <ChatTimeline :messages="store.activeSession.messages" @toggle-process="store.toggleProcess" />
+      <ChatTimeline :messages="store.activeSession.messages" @suggest="store.sendMessage" />
       <ComposerBar :busy="store.sending" @submit="store.sendMessage" />
     </div>
 

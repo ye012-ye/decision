@@ -1,166 +1,136 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { NButton, NIcon, NTag } from 'naive-ui';
 
-import type { ChatAssistantMessage, ChatMessage } from '@/types/chat';
+import { ArrowDownIcon } from '@/theme/icons';
+import type { ChatMessage as ChatMessageType } from '@/types/chat';
+import ChatMessageComp from './ChatMessage.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 
-const props = defineProps<{
-  messages: ChatMessage[];
-}>();
-
-const emit = defineEmits<{ 'toggle-process': [messageId: string] }>();
+const props = defineProps<{ messages: ChatMessageType[] }>();
+const emit = defineEmits<{ 'suggest': [text: string] }>();
 
 const timelineRef = ref<HTMLElement | null>(null);
+const stickToBottom = ref(true);
+const showJumpButton = ref(false);
 const nearBottomThreshold = 64;
+const jumpThreshold = 200;
 
-function isAssistantMessage(message: ChatMessage): message is ChatAssistantMessage {
-  return message.role === 'assistant';
+const suggestions = ['订单 A2025 的物流状态？', '帮我总结这位客户的诉求', '生成一个退款工单草稿'];
+
+function isNearBottom(el: HTMLElement) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= nearBottomThreshold;
 }
 
-function hasProcessEntries(message: ChatAssistantMessage) {
-  return message.process.length > 0;
+function handleScroll() {
+  const el = timelineRef.value;
+  if (!el) return;
+  stickToBottom.value = isNearBottom(el);
+  showJumpButton.value = el.scrollHeight - el.scrollTop - el.clientHeight > jumpThreshold;
 }
 
-function shouldShowProcessRows(message: ChatAssistantMessage) {
-  return message.processExpanded;
-}
-
-function processListId(messageId: string) {
-  return `chat-process-${messageId}`;
-}
-
-function isNearBottom(container: HTMLElement) {
-  const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-  return distanceToBottom <= nearBottomThreshold;
-}
-
-function scrollToBottom() {
-  const container = timelineRef.value;
-  if (!container) {
-    return;
-  }
-
-  container.scrollTop = container.scrollHeight;
+function scrollToBottom(smooth = false) {
+  const el = timelineRef.value;
+  if (!el) return;
+  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
 }
 
 const autoScrollSignal = computed(() =>
   props.messages
-    .map((message) => {
-      if (message.role === 'assistant') {
-        return `${message.id}:${message.content}:${message.process.length}`;
-      }
-
-      return `${message.id}:${message.content}`;
-    })
+    .map((m) => (m.role === 'assistant' ? `${m.id}:${m.content}:${m.process.length}` : `${m.id}:${m.content}`))
     .join('|')
 );
 
-watch(
-  autoScrollSignal,
-  () => {
-    const container = timelineRef.value;
-    if (!container) {
-      return;
-    }
+watch(autoScrollSignal, () => {
+  if (!stickToBottom.value) return;
+  nextTick(() => scrollToBottom(false));
+});
 
-    const shouldStickToBottom = isNearBottom(container);
-    nextTick(() => {
-      if (shouldStickToBottom) {
-        scrollToBottom();
-      }
-    });
-  }
-);
+onMounted(() => {
+  timelineRef.value?.addEventListener('scroll', handleScroll);
+  scrollToBottom(false);
+});
+
+onBeforeUnmount(() => {
+  timelineRef.value?.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 <template>
-  <div ref="timelineRef" class="chat-timeline" role="log" aria-live="polite">
-    <p v-if="messages.length === 0" class="chat-timeline__empty">
-      等待第一条消息进入作战记录。
-    </p>
+  <div class="chat-timeline-wrapper">
+    <div ref="timelineRef" class="chat-timeline" role="log" aria-live="polite" data-testid="chat-timeline">
+      <EmptyState
+        v-if="messages.length === 0"
+        title="开始一段对话"
+        description="发送一条问题，或试试下面的示例："
+      >
+        <div class="chat-timeline__suggestions">
+          <NTag
+            v-for="suggestion in suggestions"
+            :key="suggestion"
+            checkable
+            round
+            @update:checked="emit('suggest', suggestion)"
+          >
+            {{ suggestion }}
+          </NTag>
+        </div>
+      </EmptyState>
 
-    <article
-      v-for="message in messages"
-      :key="message.id"
-      class="chat-timeline__message"
-      :class="`chat-timeline__message--${message.role}`"
-      :data-message-id="message.id"
-      :data-testid="`chat-message-${message.role}`"
+      <ChatMessageComp
+        v-for="message in messages"
+        :key="message.id"
+        :message="message"
+      />
+    </div>
+
+    <NButton
+      v-if="showJumpButton"
+      class="chat-timeline__jump"
+      circle
+      type="primary"
+      data-testid="chat-jump-bottom"
+      @click="scrollToBottom(true)"
     >
-      <div class="chat-timeline__bubble" :data-testid="`chat-bubble-${message.id}`">
-        <p class="chat-timeline__meta">
-          <span>{{ message.role === 'assistant' ? 'assistant' : 'user' }}</span>
-          <span v-if="isAssistantMessage(message) && message.status === 'streaming'">生成中</span>
-          <span v-else-if="isAssistantMessage(message) && message.status === 'error'">出错</span>
-        </p>
-        <p class="chat-timeline__content" data-testid="chat-message-content">{{ message.content }}</p>
-      </div>
-
-      <template v-if="isAssistantMessage(message) && hasProcessEntries(message)">
-        <button
-          type="button"
-          class="chat-timeline__disclosure"
-          :aria-expanded="message.processExpanded"
-          :aria-controls="processListId(message.id)"
-          @click="emit('toggle-process', message.id)"
-        >
-          {{ message.processExpanded ? '收起过程' : '展开过程' }}
-        </button>
-
-        <ul
-          v-if="shouldShowProcessRows(message)"
-          :id="processListId(message.id)"
-          class="chat-timeline__process-list"
-        >
-          <li v-for="entry in message.process" :key="entry.id" class="chat-timeline__process-row" data-testid="chat-process-row">
-            <span class="chat-timeline__process-type">{{ entry.type }}</span>
-            <span class="chat-timeline__process-content">{{ entry.content }}</span>
-          </li>
-        </ul>
-      </template>
-    </article>
+      <template #icon><NIcon :component="ArrowDownIcon" /></template>
+    </NButton>
   </div>
 </template>
 
 <style scoped>
-.chat-timeline {
+.chat-timeline-wrapper {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
 }
 
-.chat-timeline__message {
+.chat-timeline {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--space-4);
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.chat-timeline__message--user {
-  align-items: flex-end;
+.chat-timeline__suggestions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 
-.chat-timeline__message--assistant {
-  align-items: flex-start;
-}
-
-.chat-timeline__bubble,
-.chat-timeline__process-list {
-  max-width: min(100%, 44rem);
-}
-
-.chat-timeline__content {
-  white-space: pre-wrap;
-}
-
-.chat-timeline__process-list {
-  margin: 0;
-  padding-left: 1.125rem;
-}
-
-.chat-timeline__process-row {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 0.5rem;
+.chat-timeline__jump {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  box-shadow: var(--shadow-md);
 }
 </style>
