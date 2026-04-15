@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { NIcon } from 'naive-ui';
+
+import { KnowledgeIcon } from '@/theme/icons';
+
 defineProps<{
   bases: Array<{
     kbCode: string;
@@ -26,7 +30,7 @@ function statusLabel(status?: number) {
 </script>
 
 <template>
-  <aside class="knowledge-sidebar">
+  <aside class="knowledge-sidebar" data-testid="knowledge-sidebar">
     <div class="workspace-panel__header">
       <p class="knowledge-sidebar__eyebrow">知识库选择</p>
       <h2>库列表</h2>
@@ -41,7 +45,7 @@ function statusLabel(status?: number) {
         :data-active="base.kbCode === activeKbCode"
         @click="emit('select', base.kbCode)"
       >
-        <strong>{{ base.kbName }}</strong>
+        <strong><NIcon :component="KnowledgeIcon" :size="16" /> {{ base.kbName }}</strong>
         <span>{{ base.description || '暂无简介' }}</span>
         <small>{{ base.owner || 'unknown' }} · {{ statusLabel(base.status) }}</small>
       </button>
@@ -54,58 +58,60 @@ function statusLabel(status?: number) {
 <style scoped>
 .knowledge-sidebar {
   display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(11, 20, 31, 0.92), rgba(7, 17, 27, 0.88));
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .knowledge-sidebar__eyebrow {
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .knowledge-sidebar h2 {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: 1.1rem;
   letter-spacing: -0.02em;
 }
 
 .knowledge-sidebar__list {
   display: grid;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .knowledge-sidebar__item {
   display: grid;
   gap: 5px;
-  padding: 14px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   text-align: left;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
 }
 
 .knowledge-sidebar__item[data-active='true'] {
-  border-color: rgba(240, 170, 82, 0.32);
-  background: rgba(240, 170, 82, 0.08);
+  border-color: var(--color-primary-soft-strong);
+  background: var(--color-primary-soft);
 }
 
 .knowledge-sidebar__item strong {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: 15px;
 }
 
 .knowledge-sidebar__item span,
 .knowledge-sidebar__item small,
 .knowledge-sidebar__empty {
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 
 .knowledge-sidebar__empty {

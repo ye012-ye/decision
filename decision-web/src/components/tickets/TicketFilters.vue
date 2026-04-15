@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue';
+import { NButton, NInput, NSelect } from 'naive-ui';
 import type { TicketQuery } from '@/api/tickets';
 
 const props = defineProps<{
@@ -19,6 +20,30 @@ const query = reactive<TicketQuery>({
   priority: '',
 });
 
+const statusOptions = [
+  { label: '全部', value: '' },
+  { label: '待处理', value: 'PENDING' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已解决', value: 'RESOLVED' },
+  { label: '已关闭', value: 'CLOSED' },
+];
+const typeOptions = [
+  { label: '全部', value: '' },
+  { label: '订单', value: 'ORDER' },
+  { label: '物流', value: 'LOGISTICS' },
+  { label: '账户', value: 'ACCOUNT' },
+  { label: '技术故障', value: 'TECH_FAULT' },
+  { label: '咨询', value: 'CONSULTATION' },
+  { label: '其他', value: 'OTHER' },
+];
+const priorityOptions = [
+  { label: '全部', value: '' },
+  { label: '低', value: 'LOW' },
+  { label: '中', value: 'MEDIUM' },
+  { label: '高', value: 'HIGH' },
+  { label: '紧急', value: 'URGENT' },
+];
+
 watch(
   () => props.filters,
   (next) => {
@@ -35,52 +60,32 @@ watch(
         <p class="ticket-filters__eyebrow">筛选条件</p>
         <h2>工单检索</h2>
       </div>
-      <button type="button" class="ticket-filters__button" :disabled="loading" @click="emit('refresh', { ...query })">
-        {{ loading ? '刷新中' : '刷新列表' }}
-      </button>
+      <NButton type="primary" :loading="loading" round @click="emit('refresh', { ...query })">
+        刷新列表
+      </NButton>
     </div>
 
     <div class="ticket-filters__grid">
       <label class="ticket-field">
         <span>工单编号</span>
-        <input v-model="query.orderNo" type="text" placeholder="WO20260409001" />
+        <NInput v-model:value="query.orderNo" placeholder="WO20260409001" clearable />
       </label>
       <label class="ticket-field">
         <span>客户 ID</span>
-        <input v-model="query.customerId" type="text" placeholder="13800001111" />
+        <NInput v-model:value="query.customerId" placeholder="13800001111" clearable />
       </label>
-      <label class="ticket-field">
+      <div class="ticket-field">
         <span>状态</span>
-        <select v-model="query.status">
-          <option value="">全部</option>
-          <option value="PENDING">待处理</option>
-          <option value="PROCESSING">处理中</option>
-          <option value="RESOLVED">已解决</option>
-          <option value="CLOSED">已关闭</option>
-        </select>
-      </label>
-      <label class="ticket-field">
+        <NSelect v-model:value="query.status" :options="statusOptions" />
+      </div>
+      <div class="ticket-field">
         <span>类型</span>
-        <select v-model="query.type">
-          <option value="">全部</option>
-          <option value="ORDER">订单</option>
-          <option value="LOGISTICS">物流</option>
-          <option value="ACCOUNT">账户</option>
-          <option value="TECH_FAULT">技术故障</option>
-          <option value="CONSULTATION">咨询</option>
-          <option value="OTHER">其他</option>
-        </select>
-      </label>
-      <label class="ticket-field">
+        <NSelect v-model:value="query.type" :options="typeOptions" />
+      </div>
+      <div class="ticket-field">
         <span>优先级</span>
-        <select v-model="query.priority">
-          <option value="">全部</option>
-          <option value="LOW">低</option>
-          <option value="MEDIUM">中</option>
-          <option value="HIGH">高</option>
-          <option value="URGENT">紧急</option>
-        </select>
-      </label>
+        <NSelect v-model:value="query.priority" :options="priorityOptions" />
+      </div>
     </div>
   </section>
 </template>
@@ -88,23 +93,23 @@ watch(
 <style scoped>
 .ticket-filters {
   display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(12, 22, 34, 0.92), rgba(7, 17, 27, 0.92));
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
 }
 
 .ticket-filters__header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .ticket-filters__eyebrow {
-  margin: 0 0 4px;
-  color: var(--muted);
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -116,53 +121,22 @@ watch(
   letter-spacing: -0.02em;
 }
 
-.ticket-filters__button {
-  padding: 10px 14px;
-  border: 1px solid rgba(240, 170, 82, 0.4);
-  border-radius: 999px;
-  color: #10161e;
-  font-weight: 700;
-  background: linear-gradient(180deg, #f4ba69, #eaa547);
-}
-
-.ticket-filters__button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .ticket-filters__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .ticket-field {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .ticket-field span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.ticket-field input,
-.ticket-field select {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 12px 13px;
-  color: var(--text);
-  background: rgba(7, 17, 27, 0.9);
-}
-
-.ticket-field input:focus,
-.ticket-field select:focus {
-  border-color: rgba(240, 170, 82, 0.42);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(240, 170, 82, 0.14);
 }
 
 @media (max-width: 1100px) {

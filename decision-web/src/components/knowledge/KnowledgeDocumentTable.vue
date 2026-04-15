@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NButton, NTag } from 'naive-ui';
+
 const emit = defineEmits<{
   upload: [file: File];
   refresh: [docId: string];
@@ -29,7 +31,7 @@ function onFileChange(event: Event) {
       </div>
       <label class="knowledge-documents__upload">
         <span>上传文档</span>
-        <input type="file" @change="onFileChange" />
+        <input type="file" class="knowledge-documents__file-input" @change="onFileChange" />
       </label>
     </header>
 
@@ -37,15 +39,23 @@ function onFileChange(event: Event) {
       <article v-for="document in documents" :key="document.docId" class="knowledge-documents__row">
         <div class="knowledge-documents__meta">
           <strong>{{ document.fileName }}</strong>
-          <span :data-status="document.status">{{ document.status }}</span>
+          <NTag
+            :type="document.status === 'COMPLETED' ? 'success' : document.status === 'PROCESSING' ? 'warning' : 'default'"
+            :bordered="false"
+            round
+            size="small"
+          >
+            {{ document.status }}
+          </NTag>
         </div>
-        <button
-          type="button"
-          class="knowledge-documents__button"
+        <NButton
+          type="primary"
+          size="small"
+          round
           @click="emit('refresh', document.docId)"
         >
           刷新状态
-        </button>
+        </NButton>
       </article>
     </div>
 
@@ -56,24 +66,24 @@ function onFileChange(event: Event) {
 <style scoped>
 .knowledge-documents {
   display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(12, 22, 34, 0.9), rgba(7, 17, 27, 0.95));
-  box-shadow: var(--shadow);
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .knowledge-documents__header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .knowledge-documents__eyebrow {
-  margin: 0 0 4px;
-  color: var(--muted);
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -87,84 +97,51 @@ function onFileChange(event: Event) {
 
 .knowledge-documents__upload {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   justify-items: end;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.knowledge-documents__upload input {
+.knowledge-documents__file-input {
   width: min(320px, 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 11px 12px;
-  color: var(--text);
-  background: rgba(7, 17, 27, 0.9);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-3);
+  color: var(--color-text);
+  background: var(--color-surface-sunken);
 }
 
 .knowledge-documents__list {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .knowledge-documents__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.02);
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
 }
 
 .knowledge-documents__meta {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .knowledge-documents__meta strong {
   font-size: 15px;
 }
 
-.knowledge-documents__meta span {
-  width: fit-content;
-  padding: 5px 9px;
-  border-radius: 999px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.knowledge-documents__meta span[data-status='PROCESSING'] {
-  color: #f7d19f;
-  background: rgba(240, 170, 82, 0.12);
-}
-
-.knowledge-documents__meta span[data-status='COMPLETED'] {
-  color: #b4f0e6;
-  background: rgba(64, 194, 173, 0.1);
-}
-
-.knowledge-documents__button {
-  min-width: 96px;
-  padding: 10px 14px;
-  border: 1px solid rgba(240, 170, 82, 0.32);
-  border-radius: 999px;
-  color: #10161e;
-  font-weight: 700;
-  background: linear-gradient(180deg, #f4ba69, #eaa547);
-}
-
-.knowledge-documents__button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .knowledge-documents__empty {
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
   line-height: 1.6;
 }
 
@@ -180,7 +157,7 @@ function onFileChange(event: Event) {
     width: 100%;
   }
 
-  .knowledge-documents__upload input {
+  .knowledge-documents__file-input {
     width: 100%;
   }
 }

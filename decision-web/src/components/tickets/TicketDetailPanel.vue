@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { NButton, NInput, NTag, NTimeline, NTimelineItem } from 'naive-ui';
 
 const props = defineProps<{
   ticket: null | {
@@ -35,6 +36,13 @@ const statusLabels: Record<string, string> = {
   CLOSED: '已关闭',
 };
 
+const statusTagType: Record<string, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
+  PENDING: 'default',
+  PROCESSING: 'info',
+  RESOLVED: 'success',
+  CLOSED: 'warning',
+};
+
 watch(
   () => props.ticket?.orderNo,
   () => {
@@ -53,7 +61,9 @@ watch(
           <p class="ticket-detail__eyebrow">当前工单</p>
           <h2>{{ props.ticket.orderNo }}</h2>
         </div>
-        <p class="ticket-detail__status">{{ statusLabels[props.ticket.status] ?? props.ticket.status }}</p>
+        <NTag :type="statusTagType[props.ticket.status] ?? 'default'" :bordered="false" round>
+          {{ statusLabels[props.ticket.status] ?? props.ticket.status }}
+        </NTag>
       </div>
 
       <div class="ticket-detail__summary">
@@ -85,33 +95,42 @@ watch(
 
         <section class="ticket-detail__section">
           <p class="ticket-detail__section-title">处理动作</p>
-          <label class="ticket-detail__field">
+          <div class="ticket-detail__field">
             <span>备注</span>
-            <textarea v-model="note" rows="4" placeholder="输入处理说明"></textarea>
-          </label>
-          <div class="ticket-detail__actions">
-            <button type="button" @click="emit('updateStatus', 'PROCESSING', note, 'console')">标记处理中</button>
-            <button type="button" @click="emit('updateStatus', 'RESOLVED', note, 'console')">标记已解决</button>
+            <NInput v-model:value="note" type="textarea" :rows="4" placeholder="输入处理说明" />
           </div>
-          <label class="ticket-detail__field">
+          <div class="ticket-detail__actions">
+            <NButton type="primary" round @click="emit('updateStatus', 'PROCESSING', note, 'console')">
+              标记处理中
+            </NButton>
+            <NButton type="primary" round @click="emit('updateStatus', 'RESOLVED', note, 'console')">
+              标记已解决
+            </NButton>
+          </div>
+          <div class="ticket-detail__field">
             <span>关闭说明</span>
-            <textarea v-model="resolution" rows="3" placeholder="输入关闭理由"></textarea>
-          </label>
-          <button type="button" class="ticket-detail__close" @click="emit('close', resolution, 'console')">关闭工单</button>
+            <NInput v-model:value="resolution" type="textarea" :rows="3" placeholder="输入关闭理由" />
+          </div>
+          <NButton type="error" round @click="emit('close', resolution, 'console')">
+            关闭工单
+          </NButton>
         </section>
 
         <section class="ticket-detail__section">
           <p class="ticket-detail__section-title">操作日志</p>
-          <div v-if="props.logs.length" class="ticket-detail__logs">
-            <article v-for="log in props.logs" :key="`${log.action}-${log.createdAt ?? log.content}`" class="ticket-log">
-              <div class="ticket-log__top">
-                <strong>{{ log.action }}</strong>
-                <span>{{ log.operator }}</span>
-              </div>
-              <p>{{ log.content }}</p>
-              <time>{{ log.createdAt ?? '未知时间' }}</time>
-            </article>
-          </div>
+          <NTimeline v-if="props.logs.length">
+            <NTimelineItem
+              v-for="log in props.logs"
+              :key="`${log.action}-${log.createdAt ?? log.content}`"
+              :title="log.action"
+              :time="log.createdAt ?? '未知时间'"
+            >
+              <p class="ticket-log__content">{{ log.content }}</p>
+              <template #footer>
+                <span class="ticket-log__operator">{{ log.operator }}</span>
+              </template>
+            </NTimelineItem>
+          </NTimeline>
           <p v-else class="ticket-detail__empty">暂无日志</p>
         </section>
       </div>
@@ -124,34 +143,33 @@ watch(
 <style scoped>
 .ticket-detail {
   display: grid;
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(12, 22, 34, 0.94), rgba(7, 17, 27, 0.94));
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
 }
 
 .ticket-detail__header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .ticket-detail__eyebrow,
 .ticket-detail__section-title,
 .ticket-detail__meta,
-.ticket-detail__status,
 .ticket-detail__field span,
-.ticket-log time {
-  color: var(--muted);
+.ticket-log__operator {
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .ticket-detail__header h2 {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: 1.25rem;
   letter-spacing: -0.03em;
 }
@@ -159,24 +177,24 @@ watch(
 .ticket-detail__summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .ticket-detail__summary-item,
 .ticket-detail__section {
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.02);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
 }
 
 .ticket-detail__summary-item {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .ticket-detail__summary-item span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -189,12 +207,12 @@ watch(
 
 .ticket-detail__body {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .ticket-detail__section {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .ticket-detail__section-title {
@@ -208,83 +226,23 @@ watch(
 
 .ticket-detail__field {
   display: grid;
-  gap: 8px;
-}
-
-.ticket-detail__field textarea {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 12px 13px;
-  color: var(--text);
-  background: rgba(7, 17, 27, 0.9);
-  resize: vertical;
-}
-
-.ticket-detail__field textarea:focus {
-  border-color: rgba(240, 170, 82, 0.42);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(240, 170, 82, 0.14);
+  gap: var(--space-2);
 }
 
 .ticket-detail__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
-.ticket-detail__actions button,
-.ticket-detail__close {
-  padding: 10px 14px;
-  border: 1px solid rgba(240, 170, 82, 0.32);
-  border-radius: 999px;
-  color: #10161e;
-  font-weight: 700;
-  background: linear-gradient(180deg, #f4ba69, #eaa547);
-}
-
-.ticket-detail__close {
-  width: fit-content;
-}
-
-.ticket-detail__logs {
-  display: grid;
-  gap: 10px;
-}
-
-.ticket-log {
-  display: grid;
-  gap: 8px;
-  padding: 12px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.ticket-log__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.ticket-log__top span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.ticket-log p {
+.ticket-log__content {
   margin: 0;
   line-height: 1.6;
 }
 
-.ticket-log time {
-  font-style: normal;
-}
-
 .ticket-detail__empty {
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 980px) {

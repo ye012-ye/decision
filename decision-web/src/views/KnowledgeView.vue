@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue';
+import { NTag } from 'naive-ui';
 
 import KnowledgeDocumentTable from '@/components/knowledge/KnowledgeDocumentTable.vue';
 import KnowledgeSidebar from '@/components/knowledge/KnowledgeSidebar.vue';
@@ -54,9 +55,15 @@ onBeforeUnmount(() => {
         <p class="page__eyebrow">RAG</p>
         <h1>知识库管理</h1>
       </div>
-      <p class="knowledge-page__status" :data-loading="store.loading" role="status" aria-live="polite">
+      <NTag
+        :type="store.loading ? 'warning' : 'success'"
+        :bordered="false"
+        round
+        role="status"
+        aria-live="polite"
+      >
         {{ store.loading ? '知识库加载中' : '知识库已同步' }}
-      </p>
+      </NTag>
     </header>
 
     <div class="knowledge-page__body">
@@ -78,41 +85,26 @@ onBeforeUnmount(() => {
 <style scoped>
 .knowledge-page {
   display: grid;
-  gap: 18px;
+  gap: var(--space-4);
 }
 
 .knowledge-page__header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .knowledge-page__header h1 {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: clamp(2rem, 2.2vw, 2.8rem);
   letter-spacing: -0.04em;
-}
-
-.knowledge-page__status {
-  margin: 0;
-  padding: 8px 12px;
-  border: 1px solid rgba(64, 194, 173, 0.24);
-  border-radius: 999px;
-  color: var(--muted);
-  background: rgba(64, 194, 173, 0.08);
-}
-
-.knowledge-page__status[data-loading='true'] {
-  border-color: rgba(240, 170, 82, 0.3);
-  color: #f7d19f;
-  background: rgba(240, 170, 82, 0.12);
 }
 
 .knowledge-page__body {
   display: grid;
   grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 18px;
+  gap: var(--space-4);
 }
 
 @media (max-width: 1120px) {

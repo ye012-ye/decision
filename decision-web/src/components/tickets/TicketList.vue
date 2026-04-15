@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NTag } from 'naive-ui';
+
 defineProps<{
   items: Array<{
     orderNo: string;
@@ -21,11 +23,25 @@ const statusLabels: Record<string, string> = {
   CLOSED: '已关闭',
 };
 
+const statusTagType: Record<string, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
+  PENDING: 'default',
+  PROCESSING: 'info',
+  RESOLVED: 'success',
+  CLOSED: 'warning',
+};
+
 const priorityLabels: Record<string, string> = {
   LOW: '低',
   MEDIUM: '中',
   HIGH: '高',
   URGENT: '紧急',
+};
+
+const priorityTagType: Record<string, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
+  LOW: 'default',
+  MEDIUM: 'info',
+  HIGH: 'warning',
+  URGENT: 'error',
 };
 </script>
 
@@ -50,11 +66,15 @@ const priorityLabels: Record<string, string> = {
       >
         <div class="ticket-list__item-top">
           <strong>{{ ticket.orderNo }}</strong>
-          <span>{{ statusLabels[ticket.status] ?? ticket.status }}</span>
+          <NTag :type="statusTagType[ticket.status] ?? 'default'" size="small" :bordered="false" round>
+            {{ statusLabels[ticket.status] ?? ticket.status }}
+          </NTag>
         </div>
         <p class="ticket-list__title">{{ ticket.title }}</p>
         <div class="ticket-list__item-bottom">
-          <span>{{ priorityLabels[ticket.priority] ?? ticket.priority }}</span>
+          <NTag :type="priorityTagType[ticket.priority] ?? 'default'" size="tiny" round>
+            {{ priorityLabels[ticket.priority] ?? ticket.priority }}
+          </NTag>
           <span>{{ ticket.customerId }}</span>
           <span>{{ ticket.type }}</span>
         </div>
@@ -68,54 +88,58 @@ const priorityLabels: Record<string, string> = {
 <style scoped>
 .ticket-list {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(12, 22, 34, 0.88), rgba(7, 17, 27, 0.9));
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
 }
 
 .ticket-list__header {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .ticket-list__eyebrow,
 .ticket-list__meta {
   margin: 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .ticket-list__header h2 {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
 }
 
 .ticket-list__items {
   display: grid;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .ticket-list__item {
   display: grid;
-  gap: 8px;
-  padding: 14px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   text-align: left;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.ticket-list__item:hover {
+  background: var(--color-surface-hover);
 }
 
 .ticket-list__item[data-active='true'] {
-  border-color: rgba(240, 170, 82, 0.34);
-  background: rgba(240, 170, 82, 0.08);
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .ticket-list__item-top,
@@ -123,12 +147,11 @@ const priorityLabels: Record<string, string> = {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
-.ticket-list__item-top span,
 .ticket-list__item-bottom span {
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -140,8 +163,8 @@ const priorityLabels: Record<string, string> = {
 
 .ticket-list__empty {
   margin: 0;
-  padding: 18px 4px 4px;
-  color: var(--muted);
+  padding: var(--space-4) var(--space-1) var(--space-1);
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 980px) {
