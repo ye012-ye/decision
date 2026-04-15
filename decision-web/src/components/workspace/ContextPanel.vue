@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
+import { NButton, NCard, NForm, NFormItem, NInput, NTag } from 'naive-ui';
 
 const props = defineProps<{
-  context: {
-    ticketOrderNo: string;
-    activeTab: string;
-  };
+  context: { ticketOrderNo: string; activeTab: string };
 }>();
 
 const emit = defineEmits<{
-  create: [payload: { type: 'LOGISTICS'; title: string; description: string; customerId: string; priority: 'HIGH' }];
+  (e: 'create', payload: {
+    type: 'LOGISTICS';
+    title: string;
+    description: string;
+    customerId: string;
+    priority: 'HIGH';
+  }): void;
 }>();
 
 const draft = reactive({
@@ -18,56 +22,97 @@ const draft = reactive({
   description: '',
 });
 
-const hasDraft = computed(() => Boolean(draft.customerId.trim() && draft.title.trim() && draft.description.trim()));
+const loading = computed(() => false); // reserved for future busy state
+const canSubmit = computed(() =>
+  Boolean(draft.customerId.trim() && draft.title.trim() && draft.description.trim())
+);
 
-function submit() {
-  if (!hasDraft.value) {
-    return;
+async function submit() {
+  if (!canSubmit.value) return;
+  try {
+    emit('create', {
+      type: 'LOGISTICS',
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      customerId: draft.customerId.trim(),
+      priority: 'HIGH',
+    });
+    window.$message?.success('已发起工单创建');
+  } catch (error) {
+    window.$message?.error(error instanceof Error ? error.message : '创建失败');
   }
-
-  emit('create', {
-    type: 'LOGISTICS',
-    title: draft.title.trim(),
-    description: draft.description.trim(),
-    customerId: draft.customerId.trim(),
-    priority: 'HIGH',
-  });
 }
 </script>
 
 <template>
-  <aside class="context-panel">
-    <div class="workspace-panel__header">
-      <p class="page__eyebrow">上下文联动</p>
-      <h2>工单面板</h2>
-    </div>
+  <NCard
+    class="context-panel"
+    data-testid="context-panel"
+    :bordered="true"
+    content-style="padding: 20px 22px;"
+  >
+    <template #header>
+      <div class="context-panel__header">
+        <span>上下文</span>
+        <NTag size="small" :type="context.activeTab === 'ticket' ? 'success' : 'default'" :bordered="false">
+          {{ context.activeTab }}
+        </NTag>
+      </div>
+    </template>
 
-    <div class="context-panel__status">
-      <span class="context-panel__badge" :data-active="props.context.activeTab === 'ticket'">ticket</span>
-      <p v-if="context.ticketOrderNo" class="context-panel__order">
-        当前工单：{{ context.ticketOrderNo }}
-      </p>
-      <p v-else class="context-panel__hint">
-        命中工单号后，这里会自动切到 ticket 视图。
-      </p>
-    </div>
+    <p v-if="context.ticketOrderNo" class="context-panel__order">
+      当前工单：<strong>{{ context.ticketOrderNo }}</strong>
+    </p>
+    <p v-else class="context-panel__hint">命中工单号后，这里会自动切换到 ticket 视图。</p>
 
-    <div class="context-panel__draft">
-      <label class="workspace-field">
-        <span>客户 ID</span>
-        <input v-model="draft.customerId" placeholder="CUS-10086" />
-      </label>
-      <label class="workspace-field">
-        <span>工单标题</span>
-        <input v-model="draft.title" placeholder="物流异常跟进" />
-      </label>
-      <label class="workspace-field">
-        <span>工单描述</span>
-        <textarea v-model="draft.description" rows="5" placeholder="补充上下文、诉求和处理建议" />
-      </label>
-      <button type="button" class="context-panel__button" :disabled="!hasDraft" @click="submit">
+    <NForm label-placement="top" :show-require-mark="false">
+      <NFormItem label="客户 ID">
+        <NInput v-model:value="draft.customerId" placeholder="CUS-10086" />
+      </NFormItem>
+      <NFormItem label="工单标题">
+        <NInput v-model:value="draft.title" placeholder="物流异常跟进" />
+      </NFormItem>
+      <NFormItem label="工单描述">
+        <NInput
+          v-model:value="draft.description"
+          type="textarea"
+          :autosize="{ minRows: 4, maxRows: 8 }"
+          placeholder="补充上下文、诉求和处理建议"
+        />
+      </NFormItem>
+
+      <NButton
+        type="primary"
+        block
+        :disabled="!canSubmit"
+        :loading="loading"
+        data-testid="context-create"
+        @click="submit"
+      >
         手动创建工单
-      </button>
-    </div>
-  </aside>
+      </NButton>
+    </NForm>
+  </NCard>
 </template>
+
+<style scoped>
+.context-panel {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.context-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.context-panel__order {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+}
+.context-panel__hint {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+</style>
