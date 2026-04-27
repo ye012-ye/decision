@@ -3,7 +3,14 @@ package com.ye.decision.domain.enums;
 import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * @author ye
+ */
+
 public enum WorkOrderAction {
+    /**
+     * 创建工单
+     */
     CREATE("CREATE", "创建"),
     ASSIGN("ASSIGN", "指派"),
     UPDATE_STATUS("UPDATE_STATUS", "更新状态"),

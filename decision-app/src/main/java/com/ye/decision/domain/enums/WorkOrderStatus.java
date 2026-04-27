@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum WorkOrderStatus {
+    /**
+     * 待处理
+     */
     PENDING("PENDING", "待处理"),
     PROCESSING("PROCESSING", "处理中"),
     RESOLVED("RESOLVED", "已解决"),

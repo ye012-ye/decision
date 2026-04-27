@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum WorkOrderPriority {
+    /**
+     * 枚举值
+     */
     LOW("LOW", "低"),
     MEDIUM("MEDIUM", "中"),
     HIGH("HIGH", "高"),

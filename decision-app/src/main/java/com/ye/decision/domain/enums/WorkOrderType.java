@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum WorkOrderType {
+    /**
+     * 工单类型枚举
+     */
     ORDER("ORDER", "订单问题"),
     LOGISTICS("LOGISTICS", "物流问题"),
     ACCOUNT("ACCOUNT", "账户问题"),
