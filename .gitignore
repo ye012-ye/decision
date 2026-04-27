@@ -33,6 +33,8 @@ build/
 .vscode/
 
 .worktrees/
+.claude/
+**/.claude/
 decision-web/node_modules/
 decision-web/dist/
 decision-web/.vite/
