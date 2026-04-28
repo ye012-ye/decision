@@ -1,11 +1,21 @@
-export type ChatEventType = 'thought' | 'action' | 'observation' | 'answer' | 'done' | 'error';
+export type ChatEventType =
+  | 'route'
+  | 'thought'
+  | 'action'
+  | 'observation'
+  | 'answer'
+  | 'done'
+  | 'error';
 
 export interface ChatStreamEvent {
   event: ChatEventType;
   data: string;
 }
 
-export type ChatProcessType = Extract<ChatEventType, 'thought' | 'action' | 'observation'>;
+export type ChatProcessType = Extract<
+  ChatEventType,
+  'route' | 'thought' | 'action' | 'observation'
+>;
 
 export interface ChatProcessEntry {
   id: string;
@@ -28,6 +38,8 @@ export interface ChatAssistantMessage {
   status: AssistantMessageStatus;
   process: ChatProcessEntry[];
   processExpanded: boolean;
+  /** 路由器选中的子 agent 名（最近一次 route 事件的 data） */
+  routedAgent?: string;
 }
 
 export type ChatMessage = ChatUserMessage | ChatAssistantMessage;

@@ -90,6 +90,7 @@ export const useWorkspaceStore = defineStore('workspace', {
         status: 'streaming',
         process: [],
         processExpanded: false,
+        routedAgent: undefined,
       };
 
       session.messages.push(userMessage, assistantMessage);
@@ -126,6 +127,9 @@ export const useWorkspaceStore = defineStore('workspace', {
               if (event.event === 'answer') {
                 target.content += event.data;
                 updateTicketContextFromText(target.content);
+              } else if (event.event === 'route') {
+                target.routedAgent = event.data;
+                appendProcessEntry(target, 'route', event.data);
               } else if (
                 event.event === 'thought' ||
                 event.event === 'action' ||
