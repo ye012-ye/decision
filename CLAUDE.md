@@ -49,26 +49,32 @@ Sensitive config is expected to be overridden by Nacos; the bootstrap.yaml value
 
 ## Architecture
 
-### Agent loop (`decision-app`)
+### Agent topology (`decision-app`)
 
-The core is `service.AgentService` — a hand-rolled **ReAct loop** (not `ChatClient.call`) that streams events through an `SseEmitter` owned by `controller.ChatController` at `POST /api/chat/...`.
+The core is `agent.AlibabaAgent` — a Spring AI Alibaba Agent Framework composition:
+**`LlmRoutingAgent` (root) → 5 domain `ReactAgent`s** (`knowledge` / `data` / `workorder` / `external` / `chat`). All sub-agents share one `ChatMemory` keyed by `sessionId`.
 
-SSE event names the frontend listens on:
-- `thought` — model reasoning
+Wiring is in `agent.config.AgentConfig`. The router is built by `agent.router.RouterAgentFactory` — its system prompt is auto-assembled from each domain's `name() + description()`, so adding a new domain requires zero changes to the factory: just add an `AbstractDomainAgent` `@Bean` under `agent.domains.<x>/`.
+
+SSE event names the frontend listens on (produced by `agent.stream.GraphEventAdapter` translating `NodeOutput`):
+- `route` — router decision (lower-cased domain name)
+- `thought` — model reasoning text
 - `action` — tool invocation (`toolName | arguments`)
 - `observation` — tool result
 - `answer` — final answer chunk
 - `done` / `error`
 
-Loop is bounded by `MAX_REACT_STEPS = 10`. `ChatModel` is the low-level Spring AI interface; `ChatMemory` is a custom `RedissonChatMemoryRepository` with window size `decision.agent.memory-window-size` (default 20).
+`ChatMemory` is the custom `RedissonChatMemoryRepository` with window size `decision.agent.memory-window-size` (default 20). The router fallback domain is configurable via `decision.agent.router.fallback-agent` (default `chat`).
 
-### Tool selection (important, non-obvious)
+### Per-domain tool selection (replaces legacy keyword filtering)
 
-`AgentService.selectTools()` does **keyword-based tool filtering** before each request: specialist tools (weather, work order, knowledge search, etc.) are only added to the prompt when the user message matches their keyword map. `QueryRedisTool` and `QueryMysqlTool` are the always-on generic tools. The goal is to shrink the LLM's tool-selection space and save tokens — if you add a new specialist tool, you must register its keywords there, not just annotate it.
+Each domain `@Bean` in `AgentConfig` declares its tool set explicitly via `ToolCatalog.byNames(...)`. There is **no runtime keyword filtering** anymore — the LLM router picks the domain, and the chosen domain's `ReactAgent` only sees its own tools. Adding a new tool means: (1) register it in `AiConfig.toolCatalog(...)`, then (2) list its name in the relevant domain's `byNames(...)` call.
 
-Tool sources are unified in `service.ToolCatalog`, which combines:
-- Local `@Tool`-annotated beans under `com.ye.decision.tool` (`CallExternalApiTool`, `KnowledgeSearchTool`, `QueryMysqlTool`, `QueryRedisTool`, `WorkOrderTool`)
-- Remote MCP tools discovered via `service.McpToolRegistry` from `decision-mcp-server` over SSE
+Tool sources are unified in `service.ToolCatalog`:
+- Local `@Tool`/function-style beans under `com.ye.decision.tool` (`CallExternalApiTool`, `KnowledgeSearchTool`, `QueryMysqlTool`, `QueryRedisTool`, `WorkOrderTool`)
+- Remote MCP tools discovered via `service.McpToolRegistry` from `decision-mcp-server` (no name prefix — names match the MCP method names: `listTables` / `describeTable` / `queryData` / `executeSql`)
+
+Because MCP tools are loaded asynchronously, `AgentConfig.dataAgent(...)` calls `mcpToolRegistry.refreshNow()` synchronously before `byNames(...)` to ensure MCP tools are present at bean wiring time. The MCP server **must** be running before `decision-app` starts, or wiring will throw `IllegalStateException` (intentional fail-fast).
 
 ### RAG subsystem (`com.ye.decision.rag.*`)
 
