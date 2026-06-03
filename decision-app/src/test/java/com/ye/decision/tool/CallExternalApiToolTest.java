@@ -1,6 +1,5 @@
 package com.ye.decision.tool;
 
-import com.ye.decision.domain.dto.ApiCallReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -34,14 +33,14 @@ class CallExternalApiToolTest {
             .andExpect(method(HttpMethod.GET))
             .andRespond(withSuccess("{\"temp\":\"20°C\"}", MediaType.APPLICATION_JSON));
 
-        String result = tool.apply(new ApiCallReq("weather", "{\"city\":\"北京\"}"));
+        String result = tool.callExternalApi("weather", "{\"city\":\"北京\"}");
         assertThat(result).contains("20°C");
         server.verify();
     }
 
     @Test
     void unknownService_returnsErrorJson() {
-        String result = tool.apply(new ApiCallReq("unknown", "{}"));
+        String result = tool.callExternalApi("unknown", "{}");
         assertThat(result).contains("\"error\"").contains("unknown_service");
     }
 
@@ -49,7 +48,7 @@ class CallExternalApiToolTest {
     void httpError_returnsErrorJson() {
         server.expect(requestTo("http://logistics.test/track?trackingNo=SF123"))
             .andRespond(withServerError());
-        String result = tool.apply(new ApiCallReq("logistics", "{\"trackingNo\":\"SF123\"}"));
+        String result = tool.callExternalApi("logistics", "{\"trackingNo\":\"SF123\"}");
         assertThat(result).contains("\"error\"");
     }
 }

@@ -66,13 +66,17 @@ SSE event names the frontend listens on (produced by `agent.stream.GraphEventAda
 
 `ChatMemory` is the custom `RedissonChatMemoryRepository` with window size `decision.agent.memory-window-size` (default 20). The router fallback domain is configurable via `decision.agent.router.fallback-agent` (default `chat`).
 
-### Per-domain tool selection (replaces legacy keyword filtering)
+### Per-domain tool selection
 
-Each domain `@Bean` in `AgentConfig` declares its tool set explicitly via `ToolCatalog.byNames(...)`. There is **no runtime keyword filtering** anymore — the LLM router picks the domain, and the chosen domain's `ReactAgent` only sees its own tools. Adding a new tool means: (1) register it in `AiConfig.toolCatalog(...)`, then (2) list its name in the relevant domain's `byNames(...)` call.
+Each domain `@Bean` in `AgentConfig` declares its tool set explicitly via `ToolCatalog.byNames(...)`. The LLM router picks the domain, and the chosen domain's `ReactAgent` only sees its own tools. Adding a new tool means: (1) create a `@Component` class with `@Tool`-annotated methods under `com.ye.decision.tool`, (2) add it to `AiConfig.toolCatalog(...)` via `ToolCallbacks.from(...)`, then (3) list its `@Tool(name = "...")` in the relevant domain's `byNames(...)` call in `AgentConfig`.
 
-Tool sources are unified in `service.ToolCatalog`:
-- Local `@Tool`/function-style beans under `com.ye.decision.tool` (`CallExternalApiTool`, `KnowledgeSearchTool`, `QueryMysqlTool`, `QueryRedisTool`, `WorkOrderTool`)
+Tool registration pattern (Spring AI Alibaba 1.1.2.2 idiomatic):
+- All local tools are `@Component` classes with `@Tool(name, description)` + `@ToolParam(description)` annotated methods — auto-discovered by Spring, aggregated in `AiConfig.toolCatalog()` via `ToolCallbacks.from()`
 - Remote MCP tools discovered via `service.McpToolRegistry` from `decision-mcp-server` (no name prefix — names match the MCP method names: `listTables` / `describeTable` / `queryData` / `executeSql`)
+
+Tool sources unified in `service.ToolCatalog`:
+- Local `@Component` + `@Tool` beans: `CallExternalApiTool`, `KnowledgeSearchTool`, `QueryMysqlTool`, `QueryRedisTool`, `WorkOrderTool`
+- Remote MCP tools from `McpToolRegistry`
 
 Because MCP tools are loaded asynchronously, `AgentConfig.dataAgent(...)` calls `mcpToolRegistry.refreshNow()` synchronously before `byNames(...)` to ensure MCP tools are present at bean wiring time. The MCP server **must** be running before `decision-app` starts, or wiring will throw `IllegalStateException` (intentional fail-fast).
 

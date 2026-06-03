@@ -1,21 +1,22 @@
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.domain.dto.QueryRedisReq;
 import org.redisson.api.RList;
 import org.redisson.api.RMap;
 import org.redisson.api.RScoredSortedSet;
 import org.redisson.api.RedissonClient;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Redis 查询工具。
  * @author ye
  */
-
-public class QueryRedisTool implements Function<QueryRedisReq, String> {
+@Component
+public class QueryRedisTool {
 
     private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper;
@@ -25,15 +26,17 @@ public class QueryRedisTool implements Function<QueryRedisReq, String> {
         this.objectMapper = objectMapper;
     }
 
-    @Override
-    public String apply(QueryRedisReq req) {
+    @Tool(name = "queryRedisTool", description = "查询 Redis 中的缓存数据、热点数据、实时计数器、会话信息或排行榜。适用于低延迟、高频访问场景。")
+    public String queryRedis(
+            @ToolParam(description = "Redis key 或 key 模式") String keyPattern,
+            @ToolParam(description = "数据类型: string / hash / zset / list") String dataType) {
         try {
-            return switch (req.dataType()) {
-                case "string" -> queryString(req.keyPattern());
-                case "hash"   -> queryHash(req.keyPattern());
-                case "zset"   -> queryZset(req.keyPattern());
-                case "list"   -> queryList(req.keyPattern());
-                default       -> errorJson("unsupported_type", "不支持的 dataType: " + req.dataType());
+            return switch (dataType) {
+                case "string" -> queryString(keyPattern);
+                case "hash"   -> queryHash(keyPattern);
+                case "zset"   -> queryZset(keyPattern);
+                case "list"   -> queryList(keyPattern);
+                default       -> errorJson("unsupported_type", "不支持的 dataType: " + dataType);
             };
         } catch (Exception e) {
             return errorJson("redis_error", e.getMessage());

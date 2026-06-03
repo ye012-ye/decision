@@ -1,8 +1,5 @@
 package com.ye.decision.rag.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.rag.search.HybridSearchService;
-import com.ye.decision.tool.KnowledgeSearchTool;
 import io.milvus.v2.client.ConnectConfig;
 import io.milvus.v2.client.MilvusClientV2;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -17,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * <ul>
  *   <li>创建 {@link MilvusClientV2} 连接（直接使用 Milvus SDK，支持混合检索）</li>
  *   <li>注册文本切片器 {@link TokenTextSplitter}（参数由 {@link RagProperties} 驱动）</li>
- *   <li>注册知识库检索工具 {@link KnowledgeSearchTool}</li>
+ *   <li>知识库检索工具 {@code KnowledgeSearchTool} 已改为 {@code @Component} 自动发现</li>
  *   <li>声明文档摄入主队列及死信队列</li>
  * </ul>
  *
@@ -56,14 +53,6 @@ public class RagConfig {
             10000,  // maxNumChunks
             true    // keepSeparator
         );
-    }
-
-    // ── 知识库检索工具 ────────────────────────────────────────────
-
-    @Bean
-    public KnowledgeSearchTool knowledgeSearchTool(HybridSearchService hybridSearchService,
-                                                   ObjectMapper objectMapper) {
-        return new KnowledgeSearchTool(hybridSearchService, objectMapper);
     }
 
     // ── 文档摄入主队列（带死信路由） ──────────────────────────────

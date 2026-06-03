@@ -3,6 +3,7 @@ package com.ye.decision;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -10,6 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableFeignClients(basePackages = "com.ye.decision.feign")
 @MapperScan({"com.ye.decision.mapper", "com.ye.decision.rag.mapper"})
 @EnableScheduling
+@EnableConfigurationProperties
 public class DecisionApplication {
 
     public static void main(String[] args) {

@@ -39,7 +39,6 @@ public class ChatController {
     @PostMapping(value = "/stream", produces = "text/event-stream;charset=UTF-8")
     public SseEmitter stream(@RequestBody ChatRequest request) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-
         sseExecutor.execute(() -> {
             try {
                 agent.chat(new AgentContext(request.sessionId(), request.message()))

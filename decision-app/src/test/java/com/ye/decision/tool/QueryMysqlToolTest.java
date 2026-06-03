@@ -1,6 +1,5 @@
 package com.ye.decision.tool;
 
-import com.ye.decision.domain.dto.QueryMysqlReq;
 import com.ye.decision.feign.DownstreamClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,21 +26,21 @@ class QueryMysqlToolTest {
     @Test
     void knownTarget_delegatesToCorrectClient() {
         when(orderClient.query("userId=1")).thenReturn("[{\"id\":1}]");
-        String result = tool.apply(new QueryMysqlReq("order-service", "userId=1"));
+        String result = tool.queryMysql("order-service", "userId=1");
         assertThat(result).isEqualTo("[{\"id\":1}]");
         verify(orderClient).query("userId=1");
     }
 
     @Test
     void unknownTarget_returnsErrorJson() {
-        String result = tool.apply(new QueryMysqlReq("unknown-service", "anything"));
+        String result = tool.queryMysql("unknown-service", "anything");
         assertThat(result).contains("\"error\"").contains("unknown_target");
     }
 
     @Test
     void feignException_returnsErrorJson() {
         when(orderClient.query(any())).thenThrow(new RuntimeException("timeout"));
-        String result = tool.apply(new QueryMysqlReq("order-service", "userId=1"));
+        String result = tool.queryMysql("order-service", "userId=1");
         assertThat(result).contains("\"error\"");
     }
 }

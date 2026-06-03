@@ -1,6 +1,7 @@
 package com.ye.decision.agent.router;
 
 import com.alibaba.cloud.ai.graph.agent.flow.agent.LlmRoutingAgent;
+import com.alibaba.cloud.ai.graph.agent.hook.Hook;
 import com.ye.decision.agent.core.AbstractDomainAgent;
 import org.springframework.ai.chat.model.ChatModel;
 
@@ -17,7 +18,8 @@ public final class RouterAgentFactory {
 
     public static LlmRoutingAgent build(ChatModel chatModel,
                                         List<AbstractDomainAgent> domains,
-                                        String fallbackAgentName) {
+                                        String fallbackAgentName,
+                                        List<? extends Hook> hooks) {
         if (domains == null || domains.isEmpty()) {
             throw new IllegalArgumentException("Router needs at least one sub-agent");
         }
@@ -29,6 +31,7 @@ public final class RouterAgentFactory {
                 .model(chatModel)
                 .systemPrompt(routingPrompt)
                 .fallbackAgent(fallbackAgentName)
+                .hooks(hooks)
                 .subAgents(domains.stream()
                     .map(d -> (com.alibaba.cloud.ai.graph.agent.Agent) d.getReactAgent())
                     .collect(Collectors.toList()))

@@ -1,20 +1,10 @@
 package com.ye.decision.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ye.decision.feign.DownstreamClient;
 import com.ye.decision.feign.OrderServiceClient;
 import com.ye.decision.feign.UserServiceClient;
-import com.ye.decision.tool.CallExternalApiTool;
-import com.ye.decision.tool.QueryMysqlTool;
-import com.ye.decision.tool.QueryRedisTool;
-import com.ye.decision.tool.WorkOrderTool;
-import com.ye.decision.service.WorkOrderService;
-import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Description;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
@@ -33,34 +23,5 @@ public class ToolConfig {
             "order-service", orderServiceClient,
             "user-service", userServiceClient
         );
-    }
-
-    @Bean
-    @Description("查询结构化业务数据，如订单、用户信息、交易记录、统计报表。适用于精确条件查询场景。")
-    public QueryMysqlTool queryMysqlTool(Map<String, DownstreamClient> downstreamClients) {
-        return new QueryMysqlTool(downstreamClients);
-    }
-
-    @Bean
-    @Description("查询 Redis 中的缓存数据、热点数据、实时计数器、会话信息或排行榜。适用于低延迟、高频访问场景。")
-    public QueryRedisTool queryRedisTool(RedissonClient redissonClient, ObjectMapper objectMapper) {
-        return new QueryRedisTool(redissonClient, objectMapper);
-    }
-
-    @Bean
-    @Description("调用外部第三方服务，包括天气查询（weather）、物流追踪（logistics）、汇率查询（exchange-rate）。")
-    public CallExternalApiTool callExternalApiTool(
-        RestTemplate restTemplate,
-        @Value("${decision.external.weather-url}") String weatherUrl,
-        @Value("${decision.external.logistics-url}") String logisticsUrl,
-        @Value("${decision.external.exchange-rate-url}") String exchangeRateUrl
-    ) {
-        return new CallExternalApiTool(restTemplate, weatherUrl, logisticsUrl, exchangeRateUrl);
-    }
-
-    @Bean
-    @Description("管理客服工单：创建、查询、更新状态、关闭。支持 action: create/query/update/close。")
-    public WorkOrderTool workOrderTool(WorkOrderService workOrderService) {
-        return new WorkOrderTool(workOrderService);
     }
 }

@@ -1,6 +1,6 @@
 package com.ye.decision.tool;
 
-import com.ye.decision.domain.dto.WorkOrderReq;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ye.decision.domain.entity.WorkOrderEntity;
 import com.ye.decision.domain.entity.WorkOrderLogEntity;
 import com.ye.decision.domain.enums.*;
@@ -21,7 +21,7 @@ class WorkOrderToolTest {
 
     @BeforeEach
     void setUp() {
-        tool = new WorkOrderTool(workOrderService);
+        tool = new WorkOrderTool(workOrderService, new ObjectMapper());
     }
 
     @Test
@@ -35,11 +35,11 @@ class WorkOrderToolTest {
         setField(entity, "assigneeGroup", "物流组");
         when(workOrderService.create(any(), any(), any(), any(), any(), any())).thenReturn(entity);
 
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "create", null, "LOGISTICS", "HIGH",
             "物流延迟", "快递3天没动", "13800001111",
             null, null, null
-        ));
+        );
 
         assertThat(result).contains("WO20260408001").contains("success");
     }
@@ -52,10 +52,10 @@ class WorkOrderToolTest {
         when(workOrderService.queryByOrderNo("WO20260408001")).thenReturn(entity);
         when(workOrderService.getLogsByOrderNo("WO20260408001")).thenReturn(List.of());
 
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "query", "WO20260408001", null, null,
             null, null, null, null, null, null
-        ));
+        );
 
         assertThat(result).contains("WO20260408001");
     }
@@ -66,20 +66,20 @@ class WorkOrderToolTest {
         setField(entity, "orderNo", "WO20260408001");
         when(workOrderService.queryByCustomerId("13800001111")).thenReturn(List.of(entity));
 
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "query", null, null, null,
             null, null, "13800001111", null, null, null
-        ));
+        );
 
         assertThat(result).contains("WO20260408001");
     }
 
     @Test
     void update_callsUpdateStatus() {
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "update", "WO20260408001", null, null,
             null, null, null, "PROCESSING", null, "开始处理"
-        ));
+        );
 
         verify(workOrderService).updateStatus("WO20260408001", WorkOrderStatus.PROCESSING, "开始处理", "agent");
         assertThat(result).contains("success");
@@ -87,10 +87,10 @@ class WorkOrderToolTest {
 
     @Test
     void close_callsClose() {
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "close", "WO20260408001", null, null,
             null, null, null, null, "已补发", null
-        ));
+        );
 
         verify(workOrderService).close("WO20260408001", "已补发", "agent");
         assertThat(result).contains("success");
@@ -98,20 +98,20 @@ class WorkOrderToolTest {
 
     @Test
     void unknownAction_returnsError() {
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "unknown", null, null, null,
             null, null, null, null, null, null
-        ));
+        );
 
         assertThat(result).contains("error").contains("unknown_action");
     }
 
     @Test
     void create_missingRequiredFields_returnsError() {
-        String result = tool.apply(new WorkOrderReq(
+        String result = tool.workOrder(
             "create", null, null, null,
             null, null, null, null, null, null
-        ));
+        );
 
         assertThat(result).contains("error").contains("missing_field");
     }

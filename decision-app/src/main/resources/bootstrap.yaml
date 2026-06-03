@@ -118,6 +118,24 @@ mybatis-plus:
 decision:
   agent:
     memory-window-size: 20
+    router:
+      fallback-agent: chat
+    model-call-limit:
+      run-limit: 8
+    tool-call-limit:
+      run-limit: 12
+    tools:
+      parallel-execution: true
+      max-parallel-tools: 4
+      execution-timeout: 30s
+      wrap-sync-tools-as-async: true
+      max-retries: 1
+    skills:
+      mode: classpath
+      classpath-path: skills
+      base-path: ${java.io.tmpdir}
+      auto-reload: false
+      fail-fast: true
   rag:
     upload-dir: ${RAG_UPLOAD_DIR:./uploads/knowledge}
     max-file-size: ${RAG_MAX_FILE_SIZE:52428800}      # 50MB，上传层硬限制
@@ -130,6 +148,15 @@ decision:
       collection-name: knowledge_vectors
       dense-dimension: 1024                              # 须与 embedding model 输出维度一致
       rrf-k: 60                                          # RRF 融合参数，值越大长尾排名权重越高
+  tika:
+    write-limit: 10000000                                # 单文档字符上限，-1=不限
+    max-embedded-resources: 200                          # 单文件最多解析的嵌入文档数
+    parse-timeout: 60s                                   # 单文件解析超时
+    allowed-mime-types: [ ]                              # MIME 白名单(baseType)，空=不限
+    executor:                                            # 解析线程池(core 满→入队→队列满才扩到 max)
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 100
   external:
     weather-url: http://api.weather.example.com/current
     logistics-url: http://api.logistics.example.com/track
@@ -144,3 +171,49 @@ logging:
     com.ye.decision: DEBUG
     org.springframework.ai: INFO
     com.baomidou.mybatisplus: INFO
+
+
+# kafka
+  kafka:
+    bootstrap-servers: localhost:9092
+#    生产者
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        linger.ms: 10
+        compression.type: lz4
+#     消费者
+    consumer:
+      group-id: order-service
+      # 默认从最新偏移量开始消费
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        # 允许反序列化未知字段
+        spring.json.trusted.packages: "*"
+        # 一次拉取最大记录数
+        max.poll.records: 500
+    listener:
+      # 手动提交
+      ack-mode: manual_immediate
+
+# kafka 模板自定义配置（com.ye.decision.kafka 的 KafkaTemplateProperties，前缀 app.kafka）
+app:
+  kafka:
+    topic: demo-topic
+    dlt-suffix: .DLT
+    consumer-group: demo-group
+    concurrency: 3        # 建议 = 主题分区数
+    partitions: 3         # 自动建主题用
+    replicas: 1           # 单机=1；生产集群建议 >= 3
+    retry:
+      max-attempts: 3     # 最大重试次数（不含首次）
+      backoff-ms: 1000    # 初始退避间隔
+      multiplier: 2.0     # 退避倍数
+      max-backoff-ms: 10000
+

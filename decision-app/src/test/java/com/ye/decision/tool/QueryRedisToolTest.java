@@ -1,7 +1,6 @@
 package com.ye.decision.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ye.decision.domain.dto.QueryRedisReq;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RBucket;
@@ -32,7 +31,7 @@ class QueryRedisToolTest {
     void string_keyFound_returnsValueAndFoundTrue() throws Exception {
         when(redissonClient.getBucket("user:1:name")).thenReturn(bucket);
         when(bucket.get()).thenReturn("Alice");
-        String result = tool.apply(new QueryRedisReq("user:1:name", "string"));
+        String result = tool.queryRedis("user:1:name", "string");
         assertThat(result).contains("\"value\":\"Alice\"").contains("\"found\":true");
     }
 
@@ -40,7 +39,7 @@ class QueryRedisToolTest {
     void string_keyNotFound_returnsFoundFalse() throws Exception {
         when(redissonClient.getBucket("missing:key")).thenReturn(bucket);
         when(bucket.get()).thenReturn(null);
-        String result = tool.apply(new QueryRedisReq("missing:key", "string"));
+        String result = tool.queryRedis("missing:key", "string");
         assertThat(result).contains("\"found\":false");
     }
 
@@ -49,13 +48,13 @@ class QueryRedisToolTest {
         when(redissonClient.getMap("user:1:profile")).thenReturn(hashMap);
         when(hashMap.isEmpty()).thenReturn(false);
         when(hashMap.readAllMap()).thenReturn(Map.of("age", 30));
-        String result = tool.apply(new QueryRedisReq("user:1:profile", "hash"));
+        String result = tool.queryRedis("user:1:profile", "hash");
         assertThat(result).contains("\"found\":true").contains("age");
     }
 
     @Test
     void unknownDataType_returnsErrorJson() {
-        String result = tool.apply(new QueryRedisReq("k", "unknown"));
+        String result = tool.queryRedis("k", "unknown");
         assertThat(result).contains("\"error\"");
     }
 }
