@@ -6,9 +6,9 @@ const fontFamily =
   '"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif';
 
 const light = {
-  primary: '#2563eb',
-  primaryHover: '#1d4ed8',
-  primaryPressed: '#1e40af',
+  primary: '#6d5efc',
+  primaryHover: '#5a49e6',
+  primaryPressed: '#4836c9',
   success: '#10b981',
   warning: '#f59e0b',
   danger: '#ef4444',
@@ -19,9 +19,9 @@ const light = {
 };
 
 const dark = {
-  primary: '#f0aa52',
-  primaryHover: '#e89a3a',
-  primaryPressed: '#d68a2a',
+  primary: '#a78bfa',
+  primaryHover: '#b9a3ff',
+  primaryPressed: '#9374f2',
   success: '#40c2ad',
   warning: '#f0aa52',
   danger: '#f07863',
