@@ -1,7 +1,17 @@
 import { defineStore } from 'pinia';
 
-import { getDocumentStatus, getKnowledgeDocuments, listKnowledgeBases, uploadDocument } from '@/api/knowledge';
-import type { KnowledgeBase, KnowledgeDocument } from '@/types/knowledge';
+import {
+  createKnowledgeBase,
+  getDocumentStatus,
+  getKnowledgeDocuments,
+  listKnowledgeBases,
+  uploadDocument,
+} from '@/api/knowledge';
+import type { KnowledgeBase, KnowledgeBaseCreateInput, KnowledgeDocument } from '@/types/knowledge';
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export const useKnowledgeStore = defineStore('knowledge', {
   state: () => ({
@@ -51,13 +61,31 @@ export const useKnowledgeStore = defineStore('knowledge', {
 
       this.documents = page.records;
     },
+    async createBase(input: KnowledgeBaseCreateInput): Promise<boolean> {
+      try {
+        const created = await createKnowledgeBase(input);
+        await this.loadBases();
+        await this.selectBase(created.kbCode);
+        window.$message?.success(`知识库「${created.kbName}」已创建`);
+        return true;
+      } catch (error) {
+        window.$message?.error(errorMessage(error, '创建知识库失败'));
+        return false;
+      }
+    },
     async uploadToActiveBase(file: File) {
       if (!this.activeKbCode) {
+        window.$message?.warning('请先选择或新建一个知识库');
         return;
       }
 
-      await uploadDocument(this.activeKbCode, file);
-      await this.selectBase(this.activeKbCode);
+      try {
+        await uploadDocument(this.activeKbCode, file);
+        window.$message?.success(`「${file.name}」已上传，开始处理`);
+        await this.selectBase(this.activeKbCode);
+      } catch (error) {
+        window.$message?.error(errorMessage(error, '上传失败'));
+      }
     },
     async refreshDocumentStatus(docId: string, kbCode?: string) {
       const targetKbCode = kbCode ?? this.activeKbCode;

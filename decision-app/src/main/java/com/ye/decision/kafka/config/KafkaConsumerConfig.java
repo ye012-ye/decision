@@ -51,6 +51,7 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
         props.put(ConsumerConfig.GROUP_ID_CONFIG, appProps.getConsumerGroup());
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        // 消费位移初始位置：从头开始消费，避免消费组迁移后无法消费
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 50);
         props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
@@ -63,7 +64,7 @@ public class KafkaConsumerConfig {
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, KafkaMessage.class.getName());
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
-
+        //
         props.putAll(kafkaProperties.getConsumer().getProperties());
         return new DefaultKafkaConsumerFactory<>(props);
     }
@@ -123,7 +124,9 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(dltConsumerFactory);
+        // 单线程
         factory.setConcurrency(1);
+        // 手动提交
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         return factory;
     }

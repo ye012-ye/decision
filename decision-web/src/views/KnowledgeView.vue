@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted } from 'vue';
 import { NTag } from 'naive-ui';
 
+import KnowledgeCreateBase from '@/components/knowledge/KnowledgeCreateBase.vue';
 import KnowledgeDocumentTable from '@/components/knowledge/KnowledgeDocumentTable.vue';
 import KnowledgeSidebar from '@/components/knowledge/KnowledgeSidebar.vue';
 import { useKnowledgeStore } from '@/stores/knowledge';
@@ -55,15 +56,18 @@ onBeforeUnmount(() => {
         <p class="page__eyebrow">RAG</p>
         <h1>知识库管理</h1>
       </div>
-      <NTag
-        :type="store.loading ? 'warning' : 'success'"
-        :bordered="false"
-        round
-        role="status"
-        aria-live="polite"
-      >
-        {{ store.loading ? '知识库加载中' : '知识库已同步' }}
-      </NTag>
+      <div class="knowledge-page__actions">
+        <KnowledgeCreateBase />
+        <NTag
+          :type="store.loading ? 'warning' : 'success'"
+          :bordered="false"
+          round
+          role="status"
+          aria-live="polite"
+        >
+          {{ store.loading ? '知识库加载中' : '知识库已同步' }}
+        </NTag>
+      </div>
     </header>
 
     <div class="knowledge-page__body">
@@ -93,6 +97,12 @@ onBeforeUnmount(() => {
   align-items: end;
   justify-content: space-between;
   gap: var(--space-4);
+}
+
+.knowledge-page__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .knowledge-page__header h1 {

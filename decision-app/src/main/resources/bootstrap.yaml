@@ -102,9 +102,6 @@ management:
     mail:
       enabled: false
 
-
-
-
 # MyBatis-Plus
 mybatis-plus:
   configuration:

@@ -1,8 +1,15 @@
-import type { KnowledgeBase, KnowledgeDocument } from '@/types/knowledge';
+import type { KnowledgeBase, KnowledgeBaseCreateInput, KnowledgeDocument } from '@/types/knowledge';
 import { readJsonEnvelope, requestJson } from './http';
 
 export function listKnowledgeBases() {
   return requestJson<KnowledgeBase[]>('/api/kb');
+}
+
+export function createKnowledgeBase(input: KnowledgeBaseCreateInput) {
+  return requestJson<KnowledgeBase>('/api/kb', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export function getKnowledgeDocuments(kbCode: string) {

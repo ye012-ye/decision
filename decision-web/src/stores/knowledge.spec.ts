@@ -94,14 +94,33 @@ vi.mock('@/api/knowledge', () => ({
     knowledgeMockState.getDocumentStatus(kbCode, docId)
   ),
   uploadDocument: vi.fn(async () => undefined),
+  createKnowledgeBase: vi.fn(async (input: KnowledgeBase) => ({ ...input, status: 1 })),
 }));
 
+import { createKnowledgeBase, uploadDocument } from '@/api/knowledge';
 import { useKnowledgeStore } from './knowledge';
 
+type MessageStub = Record<'success' | 'error' | 'warning' | 'info', ReturnType<typeof vi.fn>>;
+
+function installMessageStub(): MessageStub {
+  const stub: MessageStub = {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  };
+  window.$message = stub as unknown as typeof window.$message;
+  return stub;
+}
+
 describe('knowledge store', () => {
+  let message: MessageStub;
+
   beforeEach(() => {
     setActivePinia(createPinia());
     knowledgeMockState.reset();
+    vi.clearAllMocks();
+    message = installMessageStub();
   });
 
   it('clears documents immediately when switching bases', async () => {
@@ -275,5 +294,84 @@ describe('knowledge store', () => {
     await slowPromise;
 
     expect(store.documents[0]?.status).toBe('COMPLETED');
+  });
+
+  it('warns and skips upload when no base is active', async () => {
+    const store = useKnowledgeStore();
+
+    await store.uploadToActiveBase(new File(['x'], 'a.pdf'));
+
+    expect(message.warning).toHaveBeenCalled();
+    expect(vi.mocked(uploadDocument)).not.toHaveBeenCalled();
+  });
+
+  it('uploads and refreshes the document list on success', async () => {
+    const store = useKnowledgeStore();
+    const initialPage = knowledgeMockState.enqueueDocumentPage('base-a');
+
+    await store.loadBases();
+    const selectPromise = store.selectBase('base-a');
+    initialPage.resolve({ records: [] });
+    await selectPromise;
+
+    const refreshedPage = knowledgeMockState.enqueueDocumentPage('base-a');
+    const uploadPromise = store.uploadToActiveBase(new File(['x'], 'a.pdf'));
+    refreshedPage.resolve({
+      records: [{ docId: 'd1', fileName: 'a.pdf', status: 'PROCESSING' }],
+    });
+    await uploadPromise;
+
+    expect(message.success).toHaveBeenCalled();
+    expect(store.documents.map((doc) => doc.fileName)).toEqual(['a.pdf']);
+  });
+
+  it('surfaces an error message when upload fails', async () => {
+    const store = useKnowledgeStore();
+    const initialPage = knowledgeMockState.enqueueDocumentPage('base-a');
+
+    await store.loadBases();
+    const selectPromise = store.selectBase('base-a');
+    initialPage.resolve({ records: [] });
+    await selectPromise;
+
+    vi.mocked(uploadDocument).mockRejectedValueOnce(new Error('文件类型不支持'));
+    await store.uploadToActiveBase(new File(['x'], 'a.exe'));
+
+    expect(message.error).toHaveBeenCalledWith('文件类型不支持');
+  });
+
+  it('creates a base, selects it, and reports success', async () => {
+    const store = useKnowledgeStore();
+    const newBasePage = knowledgeMockState.enqueueDocumentPage('base-c');
+
+    const createPromise = store.createBase({
+      kbCode: 'base-c',
+      kbName: 'C 知识库',
+      description: '',
+      owner: 'console',
+    });
+    newBasePage.resolve({ records: [] });
+    const created = await createPromise;
+
+    expect(created).toBe(true);
+    expect(vi.mocked(createKnowledgeBase)).toHaveBeenCalledOnce();
+    expect(store.activeKbCode).toBe('base-c');
+    expect(message.success).toHaveBeenCalled();
+  });
+
+  it('reports an error and returns false when base creation fails', async () => {
+    const store = useKnowledgeStore();
+    vi.mocked(createKnowledgeBase).mockRejectedValueOnce(new Error('知识库编码已存在'));
+
+    const created = await store.createBase({
+      kbCode: 'dup',
+      kbName: 'x',
+      description: '',
+      owner: 'console',
+    });
+
+    expect(created).toBe(false);
+    expect(message.error).toHaveBeenCalledWith('知识库编码已存在');
+    expect(store.activeKbCode).toBe('');
   });
 });

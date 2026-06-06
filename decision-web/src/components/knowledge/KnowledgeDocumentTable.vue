@@ -30,8 +30,13 @@ function onFileChange(event: Event) {
         <h2>{{ kbCode || '未选择知识库' }}</h2>
       </div>
       <label class="knowledge-documents__upload">
-        <span>上传文档</span>
-        <input type="file" class="knowledge-documents__file-input" @change="onFileChange" />
+        <span>{{ kbCode ? '上传文档' : '请先选择知识库' }}</span>
+        <input
+          type="file"
+          class="knowledge-documents__file-input"
+          :disabled="!kbCode"
+          @change="onFileChange"
+        />
       </label>
     </header>
 

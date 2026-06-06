@@ -72,6 +72,7 @@ public class KnowledgeDocumentService {
         }
 
         String originalName = file.getOriginalFilename();
+
         String fileType = extractFileType(originalName);
         if (!ALLOWED_FILE_TYPES.contains(fileType)) {
             throw new RagException(RagErrorCode.DOC_FILE_TYPE_UNSUPPORTED,

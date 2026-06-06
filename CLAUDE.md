@@ -78,7 +78,7 @@ Tool sources unified in `service.ToolCatalog`:
 - Local `@Component` + `@Tool` beans: `CallExternalApiTool`, `KnowledgeSearchTool`, `QueryMysqlTool`, `QueryRedisTool`, `WorkOrderTool`
 - Remote MCP tools from `McpToolRegistry`
 
-Because MCP tools are loaded asynchronously, `AgentConfig.dataAgent(...)` calls `mcpToolRegistry.refreshNow()` synchronously before `byNames(...)` to ensure MCP tools are present at bean wiring time. The MCP server **must** be running before `decision-app` starts, or wiring will throw `IllegalStateException` (intentional fail-fast).
+Because MCP tools are loaded asynchronously, `AgentConfig.dataAgent(...)` calls `mcpToolRegistry.refreshNow()` synchronously before selecting tools. Local tools are required (fail-fast via `ToolCatalog.byNames(...)`); MCP tools are **best-effort** (`ToolCatalog.byNamesIfPresent(...)`) — if `decision-mcp-server` isn't reachable at wiring time, `decision-app` still starts with the data domain degraded to its local tools (a `WARN` is logged). To get the full DB toolset, start `decision-mcp-server` **before** `decision-app`; since the `ReactAgent` tool list is fixed at construction, MCP tools only join after a `decision-app` restart.
 
 ### RAG subsystem (`com.ye.decision.rag.*`)
 
