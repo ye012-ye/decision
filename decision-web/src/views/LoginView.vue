@@ -29,7 +29,8 @@ async function onSubmit() {
   loading.value = true;
   try {
     await auth.login(model.value.username, model.value.password);
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    const raw = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
     await router.replace(redirect);
   } catch (error) {
     const message = error instanceof Error ? error.message : '登录失败';

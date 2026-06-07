@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     UNIQUE KEY uk_username (username)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '系统用户';
 
--- 初始账号 admin / admin123（password 由 BCrypt 密文替换 __BCRYPT__）
+-- DEV ONLY 初始账号：admin / admin123
+-- 生产部署前请更换此 BCrypt 密文（或删除本条 INSERT，通过独立置备流程创建初始管理员）
 INSERT INTO sys_user (username, password, nickname, role, status)
 VALUES ('admin', '$2a$10$zeN4j4kVkqQ3ECCFqODRtOvFe69itVyYzQkcA6J30ank9ivaqpW/6', '管理员', 'ADMIN', 1);
