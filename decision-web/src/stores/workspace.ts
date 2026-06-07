@@ -121,9 +121,13 @@ export const useWorkspaceStore = defineStore('workspace', {
                 appendProcessEntry(target, event.event, event.data);
               } else if (event.event === 'done') {
                 if (target.status === 'streaming') target.status = 'done';
+                this.sending = false;
+                this.abortController = null;
               } else if (event.event === 'error') {
                 target.status = 'error';
                 target.processExpanded = true;
+                this.sending = false;
+                this.abortController = null;
                 const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
                 if (!target.content.trim()) target.content = errorText;
                 else target.content += `\n${errorText}`;
@@ -155,8 +159,10 @@ export const useWorkspaceStore = defineStore('workspace', {
         });
         if (!aborted) throw error;
       } finally {
-        this.sending = false;
-        this.abortController = null;
+        if (this.abortController === controller) {
+          this.sending = false;
+          this.abortController = null;
+        }
       }
     },
     stopStreaming() {
