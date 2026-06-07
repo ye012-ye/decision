@@ -1,5 +1,7 @@
 import type { ChatRequest, ChatStreamEvent } from '@/types/chat';
 import { parseSseChunk } from '@/utils/sse';
+import { redirectToLogin } from './http';
+import { authHeader } from './token';
 
 export async function streamChat(
   request: ChatRequest,
@@ -11,10 +13,16 @@ export async function streamChat(
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      ...authHeader(),
     },
     body: JSON.stringify(request),
     signal,
   });
+
+  if (response.status === 401) {
+    redirectToLogin();
+    throw new Error('未登录或登录已过期');
+  }
 
   if (!response.ok || !response.body) {
     throw new Error(`聊天请求失败: ${response.status}`);

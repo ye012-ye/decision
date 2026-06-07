@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { NButton, NDrawer, NDrawerContent, NIcon, NTag } from 'naive-ui';
+import { NButton, NDrawer, NDrawerContent, NDropdown, NIcon, NTag } from 'naive-ui';
+import type { DropdownOption } from 'naive-ui';
 
 import BackgroundAurora from './BackgroundAurora.vue';
 import SessionRail from '@/components/workspace/SessionRail.vue';
 import ChatTimeline from '@/components/workspace/ChatTimeline.vue';
 import ComposerBar from '@/components/workspace/ComposerBar.vue';
 import { MenuIcon } from '@/theme/icons';
+import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 
+const auth = useAuthStore();
 const store = useWorkspaceStore();
 
 const drawerOpen = ref(false);
@@ -40,6 +43,17 @@ function onCreate() {
 }
 function onDelete(id: string) {
   store.removeSession(id);
+}
+
+const userOptions: DropdownOption[] = [
+  { key: 'logout', label: '退出登录' },
+];
+
+function onUserSelect(key: string) {
+  if (key === 'logout') {
+    auth.logout();
+    window.location.assign('/login');
+  }
 }
 </script>
 
@@ -84,6 +98,13 @@ function onDelete(id: string) {
         <NTag :type="store.sending ? 'warning' : 'success'" :bordered="false" round size="small">
           {{ store.sending ? '正在生成' : '在线' }}
         </NTag>
+
+        <div style="flex:1" />
+        <NDropdown :options="userOptions" trigger="click" @select="onUserSelect">
+          <NButton quaternary size="small">
+            {{ auth.user?.nickname ?? '用户' }}
+          </NButton>
+        </NDropdown>
       </header>
 
       <ChatTimeline :messages="store.activeSession.messages" @suggest="store.sendMessage" />

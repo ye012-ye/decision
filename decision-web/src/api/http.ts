@@ -1,4 +1,12 @@
 import type { ResultEnvelope } from '@/types/api';
+import { authHeader, clearToken } from './token';
+
+export function redirectToLogin(): void {
+  clearToken();
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
+}
 
 export async function readJsonEnvelope<T>(response: Response): Promise<ResultEnvelope<T> | null> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -18,9 +26,15 @@ export async function requestJson<T>(input: RequestInfo, init?: RequestInit): Pr
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeader(),
       ...(init?.headers ?? {}),
     },
   });
+
+  if (response.status === 401) {
+    redirectToLogin();
+    throw new Error('未登录或登录已过期');
+  }
 
   const payload = await readJsonEnvelope<T>(response);
   if (payload) {
