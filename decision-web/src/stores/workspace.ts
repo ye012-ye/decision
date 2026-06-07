@@ -2,50 +2,34 @@ import { defineStore } from 'pinia';
 
 import { streamChat } from '@/api/chat';
 import type { ChatAssistantMessage, ChatMessage, ChatProcessType } from '@/types/chat';
-import { createTicket } from '@/api/tickets';
-import { extractOrderNo } from '@/utils/extractors';
 
 interface SessionState {
   id: string;
   title: string;
   messages: ChatMessage[];
-  context: WorkspaceContext;
 }
 
-interface WorkspaceContext {
-  ticketOrderNo: string;
-  activeTab: string;
-}
+const DEFAULT_SESSION_TITLE = '新会话';
+const TITLE_MAX_LEN = 20;
 
 function createSession(title: string): SessionState {
   return {
     id: crypto.randomUUID(),
     title,
     messages: [],
-    context: {
-      ticketOrderNo: '',
-      activeTab: 'ticket',
-    },
   };
 }
-
-const DEFAULT_SESSION_TITLE = '新会话';
-const TITLE_MAX_LEN = 20;
 
 const FALLBACK_ASSISTANT_MESSAGE = '暂未获取到回复，请稍后重试。';
 const FALLBACK_ASSISTANT_ERROR_MESSAGE = '请求失败，请稍后重试。';
 
 function appendProcessEntry(message: ChatAssistantMessage, type: ChatProcessType, content: string) {
-  message.process.push({
-    id: crypto.randomUUID(),
-    type,
-    content,
-  });
+  message.process.push({ id: crypto.randomUUID(), type, content });
 }
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
-    sessions: [createSession('新会话')],
+    sessions: [createSession(DEFAULT_SESSION_TITLE)],
     activeSessionId: '',
     sending: false,
     abortController: null as AbortController | null,
@@ -82,16 +66,6 @@ export const useWorkspaceStore = defineStore('workspace', {
         this.activeSessionId = this.sessions[nextIndex].id;
       }
     },
-    toggleProcess(messageId: string) {
-      this.bootstrap();
-      const session = this.activeSession;
-      const message = session.messages.find((item) => item.id === messageId && item.role === 'assistant');
-      if (!message || message.role !== 'assistant') {
-        return;
-      }
-
-      message.processExpanded = !message.processExpanded;
-    },
     async sendMessage(message: string) {
       this.bootstrap();
       this.abortController?.abort();
@@ -125,34 +99,17 @@ export const useWorkspaceStore = defineStore('workspace', {
         const target = session.messages.find(
           (item): item is ChatAssistantMessage => item.id === assistantMessageId && item.role === 'assistant'
         );
-        if (!target) {
-          return;
-        }
-
+        if (!target) return;
         apply(target);
-      };
-
-      const updateTicketContextFromText = (text: string) => {
-        const matchedOrderNo = extractOrderNo(text);
-        if (!matchedOrderNo) {
-          return;
-        }
-
-        session.context.ticketOrderNo = matchedOrderNo;
-        session.context.activeTab = 'ticket';
       };
 
       try {
         await streamChat(
-          {
-            sessionId: session.id,
-            message,
-          },
+          { sessionId: session.id, message },
           (event) => {
             withAssistantMessage((target) => {
               if (event.event === 'answer') {
                 target.content += event.data;
-                updateTicketContextFromText(target.content);
               } else if (event.event === 'route') {
                 target.routedAgent = event.data;
                 appendProcessEntry(target, 'route', event.data);
@@ -163,22 +120,15 @@ export const useWorkspaceStore = defineStore('workspace', {
               ) {
                 appendProcessEntry(target, event.event, event.data);
               } else if (event.event === 'done') {
-                if (target.status === 'streaming') {
-                  target.status = 'done';
-                }
+                if (target.status === 'streaming') target.status = 'done';
               } else if (event.event === 'error') {
                 target.status = 'error';
                 target.processExpanded = true;
                 const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
-                if (!target.content.trim()) {
-                  target.content = errorText;
-                } else {
-                  target.content += `\n${errorText}`;
-                }
+                if (!target.content.trim()) target.content = errorText;
+                else target.content += `\n${errorText}`;
               }
             });
-
-            updateTicketContextFromText(event.data);
           },
           controller.signal,
         );
@@ -186,9 +136,7 @@ export const useWorkspaceStore = defineStore('workspace', {
           if (!target.content.trim() && target.status !== 'error') {
             target.content = FALLBACK_ASSISTANT_MESSAGE;
           }
-          if (target.status === 'streaming') {
-            target.status = 'done';
-          }
+          if (target.status === 'streaming') target.status = 'done';
         });
       } catch (error) {
         const aborted = error instanceof DOMException && error.name === 'AbortError';
@@ -202,11 +150,8 @@ export const useWorkspaceStore = defineStore('workspace', {
           target.processExpanded = true;
           const rawErrorText = error instanceof Error ? error.message.trim() : '';
           const errorText = rawErrorText || FALLBACK_ASSISTANT_ERROR_MESSAGE;
-          if (!target.content.trim()) {
-            target.content = errorText;
-          } else if (errorText) {
-            target.content += `\n${errorText}`;
-          }
+          if (!target.content.trim()) target.content = errorText;
+          else if (errorText) target.content += `\n${errorText}`;
         });
         if (!aborted) throw error;
       } finally {
@@ -216,23 +161,6 @@ export const useWorkspaceStore = defineStore('workspace', {
     },
     stopStreaming() {
       this.abortController?.abort();
-    },
-    async createTicketFromContext(payload: {
-      type: 'ORDER' | 'LOGISTICS' | 'ACCOUNT' | 'TECH_FAULT' | 'CONSULTATION' | 'OTHER';
-      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-      title: string;
-      description: string;
-      customerId: string;
-    }) {
-      const session = this.activeSession;
-      const ticket = await createTicket({
-        ...payload,
-        sessionId: session.id,
-      });
-
-      session.context.ticketOrderNo = ticket.orderNo;
-      session.context.activeTab = 'ticket';
-      return ticket;
     },
   },
 });

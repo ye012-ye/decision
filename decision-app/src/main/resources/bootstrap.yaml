@@ -113,6 +113,10 @@ mybatis-plus:
 
 # 业务配置
 decision:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:decision-default-dev-secret-decision-default-dev-secret}
+      expire-minutes: ${JWT_EXPIRE_MINUTES:120}
   agent:
     memory-window-size: 20
     router:

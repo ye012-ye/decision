@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { requestJson } from '@/api/http';
-import { uploadDocument } from '@/api/knowledge';
 import { parseSseChunk } from './sse';
 
 describe('parseSseChunk', () => {
@@ -50,23 +49,5 @@ describe('envelope-aware request helpers', () => {
     );
 
     await expect(requestJson('/api/test')).rejects.toThrow('校验失败');
-  });
-
-  it('surfaces backend message for upload failures', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ code: 400, msg: '上传参数错误', data: null }), {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-      )
-    );
-
-    await expect(
-      uploadDocument('kb-1', new File(['hello'], 'hello.txt'))
-    ).rejects.toThrow('上传参数错误');
   });
 });

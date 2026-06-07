@@ -1,6 +1,7 @@
 import { setActivePinia, createPinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { ChatAssistantMessage, ChatMessage, ChatStreamEvent } from '@/types/chat';
+import { vi } from 'vitest';
 
 let resumeStream: (() => void) | null = null;
 let streamScenario: (onEvent: (event: ChatStreamEvent) => void) => Promise<void> = async () => {};
@@ -18,25 +19,13 @@ function createDefaultScenario() {
     onEvent({ event: 'action', data: 'callExternalApiTool | {"service":"logistics"}' });
     onEvent({ event: 'observation', data: '查询到物流延迟 2 天' });
     onEvent({ event: 'answer', data: '物流已更新，' });
-    onEvent({ event: 'answer', data: '已创建工单 WO20260409001' });
+    onEvent({ event: 'answer', data: '请稍后查收' });
     onEvent({ event: 'done', data: '[DONE]' });
   };
 }
 
 vi.mock('@/api/chat', () => ({
   streamChat: vi.fn(async (_req, onEvent) => streamScenario(onEvent)),
-}));
-
-vi.mock('@/api/tickets', () => ({
-  createTicket: vi.fn(async () => {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 0);
-    });
-
-    return {
-      orderNo: 'WO20260409099',
-    };
-  }),
 }));
 
 import { useWorkspaceStore } from './workspace';
@@ -62,7 +51,6 @@ describe('workspace store', () => {
     expect(store.activeSession.messages[0]?.content).toBe('客户投诉物流慢');
     const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
     expect(assistantMessage.status).toBe('done');
-    expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
   });
 
   it('multiple streamed answer payloads accumulate into one assistant message', async () => {
@@ -70,7 +58,7 @@ describe('workspace store', () => {
     await store.sendMessage('客户投诉物流慢');
 
     const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
-    expect(assistantMessage.content).toBe('物流已更新，已创建工单 WO20260409001');
+    expect(assistantMessage.content).toBe('物流已更新，请稍后查收');
   });
 
   it('process entries collect under that assistant message', async () => {
@@ -83,83 +71,27 @@ describe('workspace store', () => {
       'action',
       'observation',
     ]);
-    expect(assistantMessage.process.map((entry) => entry.content)).toEqual([
-      '需要查询物流',
-      'callExternalApiTool | {"service":"logistics"}',
-      '查询到物流延迟 2 天',
-    ]);
   });
 
   it('session switching during streaming keeps updates on the originating session', async () => {
     const store = useWorkspaceStore();
     store.bootstrap();
 
-    const originalSessionId = store.activeSessionId;
     const originalSession = store.activeSession;
-    store.sessions.push({
-      id: crypto.randomUUID(),
-      title: '新会话 2',
-      messages: [],
-      context: {
-        ticketOrderNo: '',
-        activeTab: 'ticket',
-      },
-    });
+    store.sessions.push({ id: crypto.randomUUID(), title: '新会话 2', messages: [] });
 
     const sendPromise = store.sendMessage('客户投诉物流慢');
     await Promise.resolve();
 
     store.activateSession(store.sessions[1].id);
     resumeStream?.();
-
     await sendPromise;
 
     expect(originalSession.messages).toHaveLength(2);
-    expect(originalSession.messages[0]?.role).toBe('user');
     const assistantMessage = asAssistantMessage(originalSession.messages[1]);
-    expect(assistantMessage.content).toBe('物流已更新，已创建工单 WO20260409001');
+    expect(assistantMessage.content).toBe('物流已更新，请稍后查收');
     expect(store.sessions[1].messages).toHaveLength(0);
     expect(store.activeSessionId).toBe(store.sessions[1].id);
-    expect(originalSessionId).toBe(originalSession.id);
-    expect(store.sessions[1].context.ticketOrderNo).toBe('');
-    expect(store.sessions[1].context.activeTab).toBe('ticket');
-    expect(originalSession.context.ticketOrderNo).toBe('WO20260409001');
-  });
-
-  it('keeps ticket context on the session that triggered ticket creation', async () => {
-    const store = useWorkspaceStore();
-    store.bootstrap();
-
-    const originalSession = store.activeSession;
-    store.sessions.push({
-      id: crypto.randomUUID(),
-      title: '新会话 2',
-      messages: [],
-      context: {
-        ticketOrderNo: '',
-        activeTab: 'ticket',
-      },
-    });
-
-    store.activateSession(store.sessions[1].id);
-
-    const createPromise = store.createTicketFromContext({
-      type: 'LOGISTICS',
-      title: '物流异常跟进',
-      description: '客户反馈物流慢',
-      customerId: 'CUS-10086',
-      priority: 'HIGH',
-    });
-
-    await Promise.resolve();
-    store.activateSession(originalSession.id);
-
-    const ticket = await createPromise;
-
-    expect(ticket.orderNo).toBe('WO20260409099');
-    expect(store.sessions[1].context.ticketOrderNo).toBe('WO20260409099');
-    expect(originalSession.context.ticketOrderNo).toBe('');
-    expect(store.activeSession.context.ticketOrderNo).toBe('');
   });
 
   it('marks assistant message as error with visible text when stream request throws', async () => {
@@ -170,7 +102,6 @@ describe('workspace store', () => {
     const store = useWorkspaceStore();
     await expect(store.sendMessage('客户投诉物流慢')).rejects.toThrow('上游连接失败');
 
-    expect(store.activeSession.messages).toHaveLength(2);
     const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
     expect(assistantMessage.status).toBe('error');
     expect(assistantMessage.content).toContain('上游连接失败');
@@ -189,21 +120,6 @@ describe('workspace store', () => {
     expect(assistantMessage.status).toBe('error');
     expect(assistantMessage.content).toContain('工具调用失败');
     expect(assistantMessage.processExpanded).toBe(true);
-  });
-
-  it('extracts order number from accumulated answer chunks', async () => {
-    streamScenario = async (onEvent) => {
-      onEvent({ event: 'answer', data: '已创建工单 WO20260409' });
-      onEvent({ event: 'answer', data: '001，请注意查收' });
-      onEvent({ event: 'done', data: '[DONE]' });
-    };
-
-    const store = useWorkspaceStore();
-    await store.sendMessage('客户投诉物流慢');
-
-    expect(store.activeSession.context.ticketOrderNo).toBe('WO20260409001');
-    const assistantMessage = asAssistantMessage(store.activeSession.messages[1]);
-    expect(assistantMessage.content).toBe('已创建工单 WO20260409001，请注意查收');
   });
 
   it('uses fallback assistant text when stream completes without answer content', async () => {

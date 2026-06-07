@@ -8,6 +8,7 @@ import com.ye.decision.domain.enums.WorkOrderStatus;
 import com.ye.decision.domain.enums.WorkOrderType;
 import com.ye.decision.mapper.AssigneeRuleMapper;
 import com.ye.decision.mapper.ChatMessageMapper;
+import com.ye.decision.mapper.SysUserMapper;
 import com.ye.decision.rag.mapper.KnowledgeBaseMapper;
 import com.ye.decision.rag.mapper.KnowledgeDocumentMapper;
 import com.ye.decision.mapper.WorkOrderLogMapper;
@@ -16,6 +17,7 @@ import com.ye.decision.service.WorkOrderService;
 import com.ye.decision.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -34,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(WorkOrderController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class WorkOrderControllerTest {
 
     @Autowired
@@ -44,6 +47,9 @@ class WorkOrderControllerTest {
 
     @MockBean
     AssigneeRuleMapper assigneeRuleMapper;
+
+    @MockBean
+    SysUserMapper sysUserMapper;
 
     @MockBean
     WorkOrderMapper workOrderMapper;
