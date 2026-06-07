@@ -47,9 +47,11 @@ function tryFormatJson(raw: string): string {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface-sunken);
+  background: var(--glass-bg);
+  backdrop-filter: blur(calc(var(--glass-blur) - 8px)) saturate(130%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 8px)) saturate(130%);
 }
 
 .tool-call[data-failed='true'] {

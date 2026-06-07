@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { NButton, NIcon, NTag } from 'naive-ui';
+import { NButton, NIcon } from 'naive-ui';
 
 import { ArrowDownIcon } from '@/theme/icons';
 import type { ChatMessage as ChatMessageType } from '@/types/chat';
@@ -21,14 +21,12 @@ const suggestions = ['订单 A2025 的物流状态？', '帮我总结这位客�
 function isNearBottom(el: HTMLElement) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= nearBottomThreshold;
 }
-
 function handleScroll() {
   const el = timelineRef.value;
   if (!el) return;
   stickToBottom.value = isNearBottom(el);
   showJumpButton.value = el.scrollHeight - el.scrollTop - el.clientHeight > jumpThreshold;
 }
-
 function scrollToBottom(smooth = false) {
   const el = timelineRef.value;
   if (!el) return;
@@ -50,7 +48,6 @@ onMounted(() => {
   timelineRef.value?.addEventListener('scroll', handleScroll);
   scrollToBottom(false);
 });
-
 onBeforeUnmount(() => {
   timelineRef.value?.removeEventListener('scroll', handleScroll);
 });
@@ -59,29 +56,31 @@ onBeforeUnmount(() => {
 <template>
   <div class="chat-timeline-wrapper">
     <div ref="timelineRef" class="chat-timeline" role="log" aria-live="polite" data-testid="chat-timeline">
-      <EmptyState
-        v-if="messages.length === 0"
-        title="开始一段对话"
-        description="发送一条问题，或试试下面的示例："
-      >
-        <div class="chat-timeline__suggestions">
-          <NTag
-            v-for="suggestion in suggestions"
-            :key="suggestion"
-            checkable
-            round
-            @update:checked="emit('suggest', suggestion)"
-          >
-            {{ suggestion }}
-          </NTag>
-        </div>
-      </EmptyState>
+      <div class="chat-timeline__inner">
+        <EmptyState
+          v-if="messages.length === 0"
+          title="开始一段对话"
+          description="发送一条问题，或试试下面的示例："
+        >
+          <div class="chat-timeline__suggestions">
+            <button
+              v-for="suggestion in suggestions"
+              :key="suggestion"
+              type="button"
+              class="chat-timeline__chip glass"
+              @click="emit('suggest', suggestion)"
+            >
+              {{ suggestion }}
+            </button>
+          </div>
+        </EmptyState>
 
-      <ChatMessageComp
-        v-for="message in messages"
-        :key="message.id"
-        :message="message"
-      />
+        <ChatMessageComp
+          v-for="message in messages"
+          :key="message.id"
+          :message="message"
+        />
+      </div>
     </div>
 
     <NButton
@@ -104,29 +103,36 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   min-height: 0;
 }
-
 .chat-timeline {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-2);
+}
+.chat-timeline__inner {
+  width: min(100%, 768px);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  min-height: 0;
-  padding: var(--space-4);
-  overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  gap: var(--space-6);
 }
-
 .chat-timeline__suggestions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
-
+.chat-timeline__chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--color-text);
+  font-size: 13px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.chat-timeline__chip:hover {
+  transform: translateY(-2px);
+}
 .chat-timeline__jump {
   position: absolute;
   right: 20px;

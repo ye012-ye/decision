@@ -130,15 +130,20 @@ async function copyContent() {
 
 .chat-message__bubble {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--color-surface-sunken);
+  background: var(--glass-bg);
+  backdrop-filter: blur(calc(var(--glass-blur) - 6px)) saturate(130%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 6px)) saturate(130%);
+  box-shadow: var(--shadow-sm);
   overflow-wrap: anywhere;
 }
 
 .chat-message--user .chat-message__bubble {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
+  border-color: var(--color-accent);
+  background: var(--color-primary-soft-strong);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .chat-message__bubble[data-errored='true'] {

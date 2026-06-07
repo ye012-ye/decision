@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { NButton, NIcon, NInput } from 'naive-ui';
+import { NIcon, NInput } from 'naive-ui';
 
 import { SendIcon, StopIcon } from '@/theme/icons';
 
@@ -33,15 +33,16 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <form class="composer" @submit.prevent="submit" data-testid="composer">
+  <form class="composer glass" @submit.prevent="submit" data-testid="composer">
     <NInput
       v-model:value="value"
       type="textarea"
       :autosize="{ minRows: 1, maxRows: 6 }"
-      placeholder="输入客户诉求或问题... (Enter 发送 · Shift+Enter 换行)"
+      placeholder="给智能助手发消息…  (Enter 发送 · Shift+Enter 换行)"
       :aria-describedby="helperId"
       :maxlength="MAX_LEN + 200"
       data-testid="composer-input"
+      class="composer__input"
       @keydown="onKeydown"
     />
 
@@ -52,25 +53,25 @@ function onKeydown(e: KeyboardEvent) {
         <span class="composer__count" :data-over="overLimit">{{ value.length }}/{{ MAX_LEN }}</span>
       </p>
 
-      <NButton
+      <button
         v-if="!busy"
-        type="primary"
+        type="button"
+        class="composer__send"
         :disabled="!canSend || overLimit"
         data-testid="composer-submit"
         @click="submit"
       >
-        <template #icon><NIcon :component="SendIcon" /></template>
-        发送
-      </NButton>
-      <NButton
+        <NIcon :component="SendIcon" /><span>发送</span>
+      </button>
+      <button
         v-else
-        type="error"
+        type="button"
+        class="composer__stop"
         data-testid="composer-stop"
         @click="emit('stop')"
       >
-        <template #icon><NIcon :component="StopIcon" /></template>
-        停止
-      </NButton>
+        <NIcon :component="StopIcon" /><span>停止</span>
+      </button>
     </div>
   </form>
 </template>
@@ -79,17 +80,19 @@ function onKeydown(e: KeyboardEvent) {
 .composer {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-radius: var(--radius-xl);
+}
+.composer__input :deep(.n-input),
+.composer__input :deep(.n-input .n-input__textarea-el) {
+  background: transparent;
 }
 .composer__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: 0 var(--space-1);
 }
 .composer__helper {
   margin: 0;
@@ -102,5 +105,34 @@ function onKeydown(e: KeyboardEvent) {
 .composer__count[data-over='true'] {
   color: var(--color-danger);
   font-weight: 600;
+}
+.composer__send,
+.composer__stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #fff;
+  transition: transform 0.15s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.composer__send {
+  background: var(--accent-gradient);
+  box-shadow: 0 6px 18px var(--aurora-1);
+}
+.composer__send:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.composer__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.composer__stop {
+  background: var(--color-danger);
+}
+.composer__stop:hover {
+  transform: translateY(-1px);
 }
 </style>

@@ -128,6 +128,12 @@ watch(
 <style scoped>
 .process-trace {
   max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(calc(var(--glass-blur) - 8px)) saturate(130%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) - 8px)) saturate(130%);
 }
 
 .process-trace__header {

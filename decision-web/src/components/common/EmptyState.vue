@@ -4,12 +4,7 @@ defineProps<{ title: string; description?: string }>();
 
 <template>
   <div class="empty-state" role="status">
-    <svg class="empty-state__art" viewBox="0 0 120 80" aria-hidden="true">
-      <rect x="10" y="14" width="100" height="52" rx="10" fill="none" stroke="currentColor" stroke-width="2" />
-      <circle cx="34" cy="40" r="4" fill="currentColor" />
-      <circle cx="60" cy="40" r="4" fill="currentColor" />
-      <circle cx="86" cy="40" r="4" fill="currentColor" />
-    </svg>
+    <div class="empty-state__orb" aria-hidden="true" />
     <p class="empty-state__title">{{ title }}</p>
     <p v-if="description" class="empty-state__desc">{{ description }}</p>
     <slot />
@@ -20,21 +15,27 @@ defineProps<{ title: string; description?: string }>();
 .empty-state {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  padding: 48px 24px;
+  gap: 14px;
+  padding: clamp(40px, 12vh, 120px) 24px 24px;
   color: var(--color-text-muted);
+  text-align: center;
 }
-.empty-state__art {
-  width: 120px;
-  color: var(--color-text-subtle);
+.empty-state__orb {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  filter: blur(1px);
+  box-shadow: 0 8px 30px var(--aurora-1);
 }
 .empty-state__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--color-text);
 }
 .empty-state__desc {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>
