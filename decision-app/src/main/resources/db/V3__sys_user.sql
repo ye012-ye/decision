@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS sys_user (
 
 -- 初始账号 admin / admin123（password 由 BCrypt 密文替换 __BCRYPT__）
 INSERT INTO sys_user (username, password, nickname, role, status)
-VALUES ('admin', '__BCRYPT__', '管理员', 'ADMIN', 1);
+VALUES ('admin', '$2a$10$zeN4j4kVkqQ3ECCFqODRtOvFe69itVyYzQkcA6J30ank9ivaqpW/6', '管理员', 'ADMIN', 1);
