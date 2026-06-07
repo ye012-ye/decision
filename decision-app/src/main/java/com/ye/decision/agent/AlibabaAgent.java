@@ -38,7 +38,15 @@ public class AlibabaAgent implements Agent {
     public Flux<AgentEvent> chat(AgentContext context) {
         String sessionId = sessionId(context);
         String requestId = UUID.randomUUID().toString();
-        UserMessage userMessage = new UserMessage(context.userMessage());
+
+        String message = context.userMessage();
+        if (context.userContext() != null) {
+            var uc = context.userContext();
+            message = "[当前用户: %s (%s, 角色: %s)]\n\n%s".formatted(
+                uc.nickname(), uc.username(), uc.role(), message);
+        }
+        UserMessage userMessage = new UserMessage(message);
+
         RunnableConfig config = RunnableConfig.builder()
             .threadId(sessionId)
             .addMetadata(ChatMemoryAgentHook.SESSION_ID_METADATA_KEY, sessionId)
