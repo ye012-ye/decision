@@ -34,6 +34,7 @@
         <mybatis-plus.version>3.5.10.1</mybatis-plus.version>
         <milvus-sdk-version>2.6.13</milvus-sdk-version>
         <commons-lang3.version>3.17.0</commons-lang3.version>
+        <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
     <dependencyManagement>
