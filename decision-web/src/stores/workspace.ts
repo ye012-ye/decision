@@ -29,6 +29,9 @@ function createSession(title: string): SessionState {
   };
 }
 
+const DEFAULT_SESSION_TITLE = '新会话';
+const TITLE_MAX_LEN = 20;
+
 const FALLBACK_ASSISTANT_MESSAGE = '暂未获取到回复，请稍后重试。';
 const FALLBACK_ASSISTANT_ERROR_MESSAGE = '请求失败，请稍后重试。';
 
@@ -61,6 +64,24 @@ export const useWorkspaceStore = defineStore('workspace', {
     activateSession(sessionId: string) {
       this.activeSessionId = sessionId;
     },
+    newConversation() {
+      const session = createSession(DEFAULT_SESSION_TITLE);
+      this.sessions.unshift(session);
+      this.activeSessionId = session.id;
+    },
+    removeSession(sessionId: string) {
+      const index = this.sessions.findIndex((session) => session.id === sessionId);
+      if (index === -1) return;
+
+      this.sessions.splice(index, 1);
+      if (this.sessions.length === 0) {
+        this.sessions.push(createSession(DEFAULT_SESSION_TITLE));
+      }
+      if (this.activeSessionId === sessionId) {
+        const nextIndex = Math.min(index, this.sessions.length - 1);
+        this.activeSessionId = this.sessions[nextIndex].id;
+      }
+    },
     toggleProcess(messageId: string) {
       this.bootstrap();
       const session = this.activeSession;
@@ -78,6 +99,11 @@ export const useWorkspaceStore = defineStore('workspace', {
       this.abortController = controller;
       this.sending = true;
       const session = this.activeSession;
+
+      if (session.messages.length === 0) {
+        session.title = message.trim().slice(0, TITLE_MAX_LEN) || DEFAULT_SESSION_TITLE;
+      }
+
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'user',

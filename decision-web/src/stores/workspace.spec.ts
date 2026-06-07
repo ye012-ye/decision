@@ -219,4 +219,39 @@ describe('workspace store', () => {
     expect(assistantMessage.status).toBe('done');
     expect(assistantMessage.content).toBe('暂未获取到回复，请稍后重试。');
   });
+
+  it('newConversation creates a fresh active session at the front', () => {
+    const store = useWorkspaceStore();
+    store.bootstrap();
+    const firstId = store.activeSessionId;
+
+    store.newConversation();
+
+    expect(store.sessions.length).toBe(2);
+    expect(store.sessions[0].id).toBe(store.activeSessionId);
+    expect(store.activeSessionId).not.toBe(firstId);
+    expect(store.activeSession.messages).toHaveLength(0);
+  });
+
+  it('removeSession drops a session and keeps at least one', () => {
+    const store = useWorkspaceStore();
+    store.bootstrap();
+    store.newConversation();
+    const activeId = store.activeSessionId;
+
+    store.removeSession(activeId);
+    expect(store.sessions.some((s) => s.id === activeId)).toBe(false);
+    expect(store.sessions.length).toBe(1);
+
+    const lastRemaining = store.sessions[0].id;
+    store.removeSession(lastRemaining);
+    expect(store.sessions.length).toBe(1);
+    expect(store.activeSessionId).toBe(store.sessions[0].id);
+  });
+
+  it('first user message becomes the session title', async () => {
+    const store = useWorkspaceStore();
+    await store.sendMessage('帮我查询最近的订单状态并跟进');
+    expect(store.activeSession.title).toBe('帮我查询最近的订单状态并跟进'.slice(0, 20));
+  });
 });
