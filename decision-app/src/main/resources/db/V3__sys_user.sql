@@ -1,0 +1,17 @@
+-- 系统用户表（JWT 登录）
+CREATE TABLE IF NOT EXISTS sys_user (
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    username    VARCHAR(64)  NOT NULL,
+    password    VARCHAR(100) NOT NULL COMMENT 'BCrypt 密文',
+    nickname    VARCHAR(64)  NOT NULL DEFAULT '',
+    role        VARCHAR(32)  NOT NULL DEFAULT 'USER',
+    status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=启用 0=禁用',
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_username (username)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '系统用户';
+
+-- 初始账号 admin / admin123（password 由 BCrypt 密文替换 __BCRYPT__）
+INSERT INTO sys_user (username, password, nickname, role, status)
+VALUES ('admin', '__BCRYPT__', '管理员', 'ADMIN', 1);
