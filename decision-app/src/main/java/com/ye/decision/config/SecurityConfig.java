@@ -10,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,21 +45,37 @@ public class SecurityConfig {
         };
     }
 
+
+    /**
+     * 配置 Spring Security 安全过滤链，启用 JWT 无状态认证。
+     *
+     * @param http                    HttpSecurity 构建对象，用于配置安全规则
+     * @param jwtAuthenticationFilter JWT 认证过滤器，负责解析和校验 Token
+     * @param restAuthenticationEntryPoint 未认证请求的 REST 风格异常处理入口
+     * @return 构建完成的 SecurityFilterChain 实例
+     * @throws Exception 配置过程中可能抛出的异常
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtAuthenticationFilter,
                                                    AuthenticationEntryPoint restAuthenticationEntryPoint)
             throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())
-            .cors(Customizer.withDefaults())
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                .requestMatchers("/actuator/health").permitAll()
-                .anyRequest().authenticated())
-            .exceptionHandling(eh -> eh.authenticationEntryPoint(restAuthenticationEntryPoint))
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                http
+                // 禁用 CSRF 防护，因为使用 JWT 无状态认证，不依赖 Cookie
+                .csrf(AbstractHttpConfigurer::disable)
+                // 启用默认 CORS 跨域配置
+                .cors(Customizer.withDefaults())
+                // 设置会话策略为无状态，不创建和使用 HttpSession
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 配置请求授权规则
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
+                        .anyRequest().authenticated())
+                // 配置认证异常处理，未认证请求将返回 REST 风格错误响应
+                .exceptionHandling(eh -> eh.authenticationEntryPoint(restAuthenticationEntryPoint))
+                // 将 JWT 过滤器注册在用户名密码认证过滤器之前执行
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

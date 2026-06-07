@@ -37,6 +37,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Result<LoginResp>> login(@Valid @RequestBody LoginReq req) {
+        if (req == null){
+            return ResponseEntity.status(401).body(Result.error(401, "用户名或密码为空"));
+        }
         SysUser user = findByUsername(req.username());
         boolean ok = user != null
             && user.getStatus() != null && user.getStatus() == 1
@@ -58,6 +61,9 @@ public class AuthController {
     }
 
     private SysUser findByUsername(String username) {
+        if (username.isBlank()){
+            return null;
+        }
         return userMapper.selectOne(
             new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
     }
