@@ -1,7 +1,25 @@
-import type { ChatRequest, ChatStreamEvent } from '@/types/chat';
+import type { ChatHistoryMessage, ChatRequest, ChatSessionSummary, ChatStreamEvent } from '@/types/chat';
 import { parseSseChunk } from '@/utils/sse';
-import { redirectToLogin } from './http';
+import { redirectToLogin, requestJson } from './http';
 import { authHeader } from './token';
+
+export function listChatSessions() {
+  return requestJson<ChatSessionSummary[]>('/api/chat/sessions', {
+    method: 'GET',
+  });
+}
+
+export function getChatMessages(sessionId: string) {
+  return requestJson<ChatHistoryMessage[]>(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
+    method: 'GET',
+  });
+}
+
+export function deleteChatSession(sessionId: string) {
+  return requestJson<void>(`/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+  });
+}
 
 export async function streamChat(
   request: ChatRequest,

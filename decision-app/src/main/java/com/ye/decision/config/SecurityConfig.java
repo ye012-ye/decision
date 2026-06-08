@@ -3,6 +3,7 @@ package com.ye.decision.config;
 import com.ye.decision.security.JwtAuthenticationFilter;
 import com.ye.decision.security.JwtProperties;
 import com.ye.decision.security.JwtService;
+import com.ye.decision.mapper.SysUserMapper;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,8 +32,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
-        return new JwtAuthenticationFilter(jwtService);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService, SysUserMapper userMapper) {
+        return new JwtAuthenticationFilter(jwtService, userMapper);
     }
 
     @Bean

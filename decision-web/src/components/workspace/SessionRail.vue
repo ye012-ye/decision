@@ -7,7 +7,7 @@ import { useThemeStore } from '@/stores/theme';
 import type { ChatMessage } from '@/types/chat';
 
 const props = defineProps<{
-  sessions: Array<{ id: string; title: string; messages?: ChatMessage[] }>;
+  sessions: Array<{ id: string; title: string; messages?: ChatMessage[]; messageCount?: number }>;
   activeSessionId: string;
 }>();
 const emit = defineEmits<{

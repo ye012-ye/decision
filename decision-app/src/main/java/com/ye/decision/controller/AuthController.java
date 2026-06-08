@@ -7,10 +7,11 @@ import com.ye.decision.domain.dto.LoginResp;
 import com.ye.decision.domain.dto.MeResp;
 import com.ye.decision.domain.entity.SysUser;
 import com.ye.decision.mapper.SysUserMapper;
+import com.ye.decision.security.CurrentUser;
 import com.ye.decision.security.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,12 +50,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public Result<MeResp> me(Authentication authentication) {
-        SysUser user = findByUsername(authentication.getName());
-        if (user == null) {
-            return Result.error(404, "用户不存在");
-        }
-        return Result.ok(new MeResp(user.getUsername(), user.getNickname(), user.getRole()));
+    public Result<MeResp> me(@AuthenticationPrincipal CurrentUser user) {
+        return Result.ok(new MeResp(user.username(), user.nickname(), user.role()));
     }
 
     private SysUser findByUsername(String username) {
