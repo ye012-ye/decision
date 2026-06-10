@@ -1,5 +1,8 @@
 package com.ye.decision.security;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ye.decision.domain.entity.SysUser;
+import com.ye.decision.mapper.SysUserMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,9 +28,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final SysUserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, SysUserMapper userMapper) {
         this.jwtService = jwtService;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -41,8 +46,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(PREFIX.length());
             try {
                 String username = jwtService.parseUsername(token);
+                SysUser user = findActiveUser(username);
+                if (user == null) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                CurrentUser principal = new CurrentUser(
+                    user.getId(), user.getUsername(), user.getNickname(), user.getRole());
                 var authentication = new UsernamePasswordAuthenticationToken(
-                    username, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                    principal, null, List.of(new SimpleGrantedAuthority(toRoleAuthority(user.getRole()))));
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (JwtException | IllegalArgumentException e) {
@@ -50,5 +63,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private SysUser findActiveUser(String username) {
+        SysUser user = userMapper.selectOne(
+            new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
+        if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+            return null;
+        }
+        return user;
+    }
+
+    private String toRoleAuthority(String role) {
+        if (role == null || role.isBlank()) {
+            return "ROLE_USER";
+        }
+        return role.startsWith("ROLE_") ? role : "ROLE_" + role;
     }
 }

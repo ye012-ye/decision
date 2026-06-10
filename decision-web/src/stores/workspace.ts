@@ -1,12 +1,20 @@
 import { defineStore } from 'pinia';
 
-import { streamChat } from '@/api/chat';
-import type { ChatAssistantMessage, ChatMessage, ChatProcessType } from '@/types/chat';
+import { deleteChatSession, getChatMessages, listChatSessions, streamChat } from '@/api/chat';
+import type {
+  ChatAssistantMessage,
+  ChatHistoryMessage,
+  ChatMessage,
+  ChatProcessType,
+  ChatSessionSummary,
+} from '@/types/chat';
 
 interface SessionState {
   id: string;
   title: string;
   messages: ChatMessage[];
+  messageCount?: number;
+  loaded?: boolean;
 }
 
 const DEFAULT_SESSION_TITLE = '新会话';
@@ -17,6 +25,8 @@ function createSession(title: string): SessionState {
     id: crypto.randomUUID(),
     title,
     messages: [],
+    messageCount: 0,
+    loaded: true,
   };
 }
 
@@ -27,12 +37,42 @@ function appendProcessEntry(message: ChatAssistantMessage, type: ChatProcessType
   message.process.push({ id: crypto.randomUUID(), type, content });
 }
 
+function sessionFromSummary(summary: ChatSessionSummary): SessionState {
+  return {
+    id: summary.sessionId,
+    title: summary.title || DEFAULT_SESSION_TITLE,
+    messages: [],
+    messageCount: summary.messageCount,
+    loaded: false,
+  };
+}
+
+function messageFromHistory(message: ChatHistoryMessage): ChatMessage {
+  if (message.role === 'user') {
+    return {
+      id: message.id,
+      role: 'user',
+      content: message.content,
+    };
+  }
+
+  return {
+    id: message.id,
+    role: 'assistant',
+    content: message.content,
+    status: 'done',
+    process: [],
+    processExpanded: false,
+  };
+}
+
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     sessions: [createSession(DEFAULT_SESSION_TITLE)],
     activeSessionId: '',
     sending: false,
     abortController: null as AbortController | null,
+    historyLoaded: false,
   }),
   getters: {
     activeSession(state) {
@@ -40,13 +80,38 @@ export const useWorkspaceStore = defineStore('workspace', {
     },
   },
   actions: {
-    bootstrap() {
+    async bootstrap() {
       if (!this.activeSessionId) {
         this.activeSessionId = this.sessions[0].id;
       }
+      if (!this.historyLoaded) {
+        this.historyLoaded = true;
+        try {
+          const persistedSessions = await listChatSessions();
+          if (persistedSessions.length > 0) {
+            this.sessions = persistedSessions.map(sessionFromSummary);
+            this.activeSessionId = this.sessions[0].id;
+            await this.loadSessionMessages(this.activeSessionId);
+            return;
+          }
+        } catch {
+          this.historyLoaded = false;
+        }
+      }
     },
-    activateSession(sessionId: string) {
+    async activateSession(sessionId: string) {
       this.activeSessionId = sessionId;
+      await this.loadSessionMessages(sessionId);
+    },
+    async loadSessionMessages(sessionId: string) {
+      const session = this.sessions.find((item) => item.id === sessionId);
+      if (!session || session.loaded || session.messages.length > 0) {
+        return;
+      }
+      const messages = await getChatMessages(sessionId);
+      session.messages = messages.map(messageFromHistory);
+      session.messageCount = session.messages.length;
+      session.loaded = true;
     },
     newConversation() {
       const session = createSession(DEFAULT_SESSION_TITLE);
@@ -58,6 +123,7 @@ export const useWorkspaceStore = defineStore('workspace', {
       if (index === -1) return;
 
       this.sessions.splice(index, 1);
+      deleteChatSession(sessionId).catch(() => {});
       if (this.sessions.length === 0) {
         this.sessions.push(createSession(DEFAULT_SESSION_TITLE));
       }
@@ -67,12 +133,13 @@ export const useWorkspaceStore = defineStore('workspace', {
       }
     },
     async sendMessage(message: string) {
-      this.bootstrap();
+      const targetSessionId = this.activeSessionId || this.sessions[0].id;
+      await this.bootstrap();
       this.abortController?.abort();
       const controller = new AbortController();
       this.abortController = controller;
       this.sending = true;
-      const session = this.activeSession;
+      const session = this.sessions.find((item) => item.id === targetSessionId) ?? this.activeSession;
 
       if (session.messages.length === 0) {
         session.title = message.trim().slice(0, TITLE_MAX_LEN) || DEFAULT_SESSION_TITLE;
@@ -94,6 +161,8 @@ export const useWorkspaceStore = defineStore('workspace', {
       };
 
       session.messages.push(userMessage, assistantMessage);
+      session.messageCount = session.messages.length;
+      session.loaded = true;
       const assistantMessageId = assistantMessage.id;
       const withAssistantMessage = (apply: (target: ChatAssistantMessage) => void) => {
         const target = session.messages.find(
@@ -121,9 +190,13 @@ export const useWorkspaceStore = defineStore('workspace', {
                 appendProcessEntry(target, event.event, event.data);
               } else if (event.event === 'done') {
                 if (target.status === 'streaming') target.status = 'done';
+                this.sending = false;
+                this.abortController = null;
               } else if (event.event === 'error') {
                 target.status = 'error';
                 target.processExpanded = true;
+                this.sending = false;
+                this.abortController = null;
                 const errorText = event.data.trim() || FALLBACK_ASSISTANT_ERROR_MESSAGE;
                 if (!target.content.trim()) target.content = errorText;
                 else target.content += `\n${errorText}`;
@@ -138,6 +211,7 @@ export const useWorkspaceStore = defineStore('workspace', {
           }
           if (target.status === 'streaming') target.status = 'done';
         });
+        session.messageCount = session.messages.length;
       } catch (error) {
         const aborted = error instanceof DOMException && error.name === 'AbortError';
         withAssistantMessage((target) => {
@@ -155,8 +229,11 @@ export const useWorkspaceStore = defineStore('workspace', {
         });
         if (!aborted) throw error;
       } finally {
-        this.sending = false;
-        this.abortController = null;
+        session.messageCount = session.messages.length;
+        if (this.abortController === controller) {
+          this.sending = false;
+          this.abortController = null;
+        }
       }
     },
     stopStreaming() {

@@ -5,6 +5,11 @@ import { vi } from 'vitest';
 
 let resumeStream: (() => void) | null = null;
 let streamScenario: (onEvent: (event: ChatStreamEvent) => void) => Promise<void> = async () => {};
+let historySessions: Array<{ sessionId: string; title: string; messageCount: number; updatedAt: string }> = [];
+let historyMessages: Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: string }> = [];
+const listChatSessionsMock = vi.fn(async () => historySessions);
+const getChatMessagesMock = vi.fn(async (_sessionId: string) => historyMessages);
+const deleteChatSessionMock = vi.fn(async (_sessionId: string) => undefined);
 
 function createDefaultScenario() {
   return async (onEvent: (event: ChatStreamEvent) => void) => {
@@ -26,6 +31,9 @@ function createDefaultScenario() {
 
 vi.mock('@/api/chat', () => ({
   streamChat: vi.fn(async (_req, onEvent) => streamScenario(onEvent)),
+  listChatSessions: () => listChatSessionsMock(),
+  getChatMessages: (sessionId: string) => getChatMessagesMock(sessionId),
+  deleteChatSession: (sessionId: string) => deleteChatSessionMock(sessionId),
 }));
 
 import { useWorkspaceStore } from './workspace';
@@ -40,6 +48,53 @@ describe('workspace store', () => {
     setActivePinia(createPinia());
     resumeStream = null;
     streamScenario = createDefaultScenario();
+    historySessions = [];
+    historyMessages = [];
+    listChatSessionsMock.mockClear();
+    getChatMessagesMock.mockClear();
+    deleteChatSessionMock.mockClear();
+  });
+
+  it('bootstrap restores persisted sessions and loads the active messages', async () => {
+    historySessions = [
+      {
+        sessionId: 'session-1',
+        title: 'Order follow up',
+        messageCount: 2,
+        updatedAt: '2026-06-07T10:00:00',
+      },
+    ];
+    historyMessages = [
+      { id: 'm1', role: 'user', content: 'Where is my order?', createdAt: '2026-06-07T10:00:00' },
+      { id: 'm2', role: 'assistant', content: 'It is in transit.', createdAt: '2026-06-07T10:00:01' },
+    ];
+
+    const store = useWorkspaceStore();
+    await store.bootstrap();
+
+    expect(listChatSessionsMock).toHaveBeenCalled();
+    expect(getChatMessagesMock).toHaveBeenCalledWith('session-1');
+    expect(store.activeSessionId).toBe('session-1');
+    expect(store.sessions[0].title).toBe('Order follow up');
+    expect(store.activeSession.messages).toHaveLength(2);
+    expect(store.activeSession.messages[1]?.content).toBe('It is in transit.');
+  });
+
+  it('activateSession loads persisted messages when the session is empty', async () => {
+    historyMessages = [
+      { id: 'm1', role: 'user', content: 'Hello', createdAt: '2026-06-07T10:00:00' },
+    ];
+
+    const store = useWorkspaceStore();
+    store.sessions = [
+      { id: 'session-1', title: 'Session 1', messages: [], messageCount: 0, loaded: true },
+      { id: 'session-2', title: 'Session 2', messages: [], messageCount: 1, loaded: false },
+    ];
+
+    await store.activateSession('session-2');
+
+    expect(getChatMessagesMock).toHaveBeenCalledWith('session-2');
+    expect(store.activeSession.messages[0]?.content).toBe('Hello');
   });
 
   it('sending creates one user message and one assistant message per streamed turn', async () => {
@@ -75,7 +130,7 @@ describe('workspace store', () => {
 
   it('session switching during streaming keeps updates on the originating session', async () => {
     const store = useWorkspaceStore();
-    store.bootstrap();
+    await store.bootstrap();
 
     const originalSession = store.activeSession;
     store.sessions.push({ id: crypto.randomUUID(), title: '新会话 2', messages: [] });
@@ -157,6 +212,7 @@ describe('workspace store', () => {
 
     store.removeSession(activeId);
     expect(store.sessions.some((s) => s.id === activeId)).toBe(false);
+    expect(deleteChatSessionMock).toHaveBeenCalledWith(activeId);
     expect(store.sessions.length).toBe(1);
 
     const lastRemaining = store.sessions[0].id;

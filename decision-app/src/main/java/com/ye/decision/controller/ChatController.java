@@ -3,13 +3,15 @@ package com.ye.decision.controller;
 import com.ye.decision.agent.core.Agent;
 import com.ye.decision.agent.core.AgentContext;
 import com.ye.decision.agent.core.AgentEventType;
-import com.ye.decision.agent.core.UserContext;
+import com.ye.decision.common.Result;
+import com.ye.decision.domain.dto.ChatMessageVO;
 import com.ye.decision.domain.dto.ChatRequest;
-import com.ye.decision.domain.entity.SysUser;
-import com.ye.decision.mapper.SysUserMapper;
+import com.ye.decision.domain.dto.ChatSessionVO;
+import com.ye.decision.service.ChatHistoryService;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -34,25 +37,37 @@ public class ChatController {
         new MediaType("text", "plain", StandardCharsets.UTF_8);
 
     private final Agent agent;
+    private final ChatHistoryService chatHistoryService;
     private final ExecutorService sseExecutor;
-    private final SysUserMapper userMapper;
 
-    public ChatController(Agent agent, ExecutorService sseExecutor, SysUserMapper userMapper) {
+    public ChatController(Agent agent, ChatHistoryService chatHistoryService, ExecutorService sseExecutor) {
         this.agent = agent;
+        this.chatHistoryService = chatHistoryService;
         this.sseExecutor = sseExecutor;
-        this.userMapper = userMapper;
+    }
+
+    @GetMapping("/sessions")
+    public Result<List<ChatSessionVO>> sessions() {
+        return Result.ok(chatHistoryService.listSessions());
+    }
+
+    @GetMapping("/sessions/{sessionId}/messages")
+    public Result<List<ChatMessageVO>> messages(@PathVariable String sessionId) {
+        return Result.ok(chatHistoryService.getMessages(sessionId));
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public Result<Void> deleteSession(@PathVariable String sessionId) {
+        chatHistoryService.deleteSession(sessionId);
+        return Result.ok(null);
     }
 
     @PostMapping(value = "/stream", produces = "text/event-stream;charset=UTF-8")
     public SseEmitter stream(@RequestBody ChatRequest request) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-
-        // 在线程分叉前取出用户上下文（SecurityContext 是 ThreadLocal，不跨线程）
-        UserContext userContext = extractUserContext();
-
         sseExecutor.execute(() -> {
             try {
-                agent.chat(new AgentContext(request.sessionId(), request.message(), userContext))
+                agent.chat(new AgentContext(request.sessionId(), request.message()))
                     .doOnNext(event -> {
                         try {
                             emitter.send(SseEmitter.event()
@@ -80,23 +95,6 @@ public class ChatController {
         });
 
         return emitter;
-    }
-
-    UserContext extractUserContext() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getPrincipal())) {
-            return null;
-        }
-        SysUser user = userMapper.selectOne(
-            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, authentication.getName()));
-        if (user == null) {
-            return null;
-        }
-        return new UserContext(user.getUsername(),
-            user.getNickname() != null ? user.getNickname() : user.getUsername(),
-            user.getRole() != null ? user.getRole() : "USER");
     }
 
     private static String toEventName(AgentEventType type) {

@@ -48,3 +48,17 @@ export interface ChatRequest {
   sessionId: string;
   message: string;
 }
+
+export interface ChatSessionSummary {
+  sessionId: string;
+  title: string;
+  messageCount: number;
+  updatedAt: string;
+}
+
+export interface ChatHistoryMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
